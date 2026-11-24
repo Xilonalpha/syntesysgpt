@@ -616,9 +616,7 @@ fun AdvancedDiscoveryScreen(
                     }
                 )
                 AdvancedTab.EXOMOON_OCEANS -> Text("Exoluni: lipsesc măsurătorile TTV/TDV și validarea independentă. Modul observațional indisponibil.", modifier = Modifier.padding(16.dp))
-                AdvancedTab.SPACE_WEATHER -> SpaceWeatherMagnetosphereView(
-                    assessments = spaceWeatherAssessments
-                )
+                AdvancedTab.SPACE_WEATHER -> ScientificCalculationLab(viewModel, listOf("Magnetopauză"))
             }
         }
     }
