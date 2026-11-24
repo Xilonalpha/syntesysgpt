@@ -67,11 +67,15 @@ class MonoTransitHunterEngine @Inject constructor(
         val sqrtChordCorrection = sqrt(1.0 - bClamped.pow(2))
         val sqrtA = (tauSeconds * sqrt(G * mStarKg)) / (2.0 * rStarMeters * sqrtChordCorrection)
         val semiMajorAxisMeters = sqrtA.pow(2)
+        require(semiMajorAxisMeters.isFinite() && semiMajorAxisMeters > rStarMeters + planetRadiusMeters) {
+            "Circular orbit intersects stellar surface or is numerically invalid"
+        }
         val semiMajorAxisAu = semiMajorAxisMeters / AU_METERS
 
         // 3. Orbital Period via Kepler's Third Law: P = 2*pi * sqrt(a^3 / (G * M*))
         val periodSeconds = 2.0 * Math.PI * sqrt(semiMajorAxisMeters.pow(3) / (G * mStarKg))
         val circularPeriodDays = periodSeconds / SECONDS_PER_DAY
+        require(circularPeriodDays.isFinite() && circularPeriodDays > 0)
 
         // Minimum possible period based on stellar boundary crossing
         val minPeriodDays: Double? = null
@@ -97,7 +101,7 @@ class MonoTransitHunterEngine @Inject constructor(
             append("Hypothetical circular orbit (not a detection): duration=${String.format("%.2f", transitDurationHours)}h, depth=${String.format("%.0f", transitDepthPpm)}ppm. ")
             append("Inverted orbit: a=${String.format("%.3f", semiMajorAxisAu)} AU, estimated P_circ=${String.format("%.1f", circularPeriodDays)} d. ")
             if (isHz) {
-                append("★ LOCATED IN CIRCUMSTELLAR HABITABLE ZONE (S=${String.format("%.2f", insolationEarth)} S⊕, Teq=${teqK.roundToInt()} K). ")
+                append("Conditional insolation within approximate HZ interval (S=${String.format("%.2f", insolationEarth)} S⊕, Teq=${teqK.roundToInt()} K). ")
             }
             append("No independent period or NASA disposition established. Assumed albedo 0.3; small-planet chord approximation.")
         }
