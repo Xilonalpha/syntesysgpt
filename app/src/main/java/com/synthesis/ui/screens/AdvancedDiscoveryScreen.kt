@@ -408,8 +408,8 @@ fun AdvancedDiscoveryScreen(
             }
 
             when (selectedTab) {
-                AdvancedTab.EXTRATERRESTRIAL_LIFE,
-                AdvancedTab.BIOSIGNATURES -> ExtraterrestrialLifeView(
+                AdvancedTab.BIOSIGNATURES -> ScientificCalculationLab(viewModel, listOf("Gibbs", "Asimetrie"))
+                AdvancedTab.EXTRATERRESTRIAL_LIFE -> ExtraterrestrialLifeView(
                     targets = extraterrestrialTargets,
                     telescopeFeeds = activeTelescopeFeeds,
                     liveSyncResult = liveAstrobiologySyncResult,
@@ -420,7 +420,7 @@ fun AdvancedDiscoveryScreen(
                     rescues = dilutionRescues,
                     onOpenDeblender = { showDeblendDialog = true }
                 )
-                AdvancedTab.HARMONIC_STITCHER -> HarmonicStitcherView(harmonicStitches)
+                AdvancedTab.HARMONIC_STITCHER -> ScientificCalculationLab(viewModel, listOf("Orbite", "TTV"))
                 AdvancedTab.CLIMATE_SIMULATOR -> ClimateSimulatorView(
                     result = climateResult,
                     onSimulate = { name, insolation, co2, press ->
@@ -602,7 +602,7 @@ fun AdvancedDiscoveryScreen(
                     engine = viewModel.blackHoleRelativityEngine
                 )
                 AdvancedTab.PLATO_ASTEROSEISMOLOGY -> Text("PLATO: lipsesc frecvențele observate și incertitudinile validate. Modul observațional indisponibil.", modifier = Modifier.padding(16.dp))
-                AdvancedTab.JWST_SPECTROSCOPY -> Text("JWST: lipsesc spectrele observaționale calibrate. Modul observațional indisponibil.", modifier = Modifier.padding(16.dp))
+                AdvancedTab.JWST_SPECTROSCOPY -> ScientificCalculationLab(viewModel, listOf("Spectru"))
                 AdvancedTab.ROMAN_MICROLENSING -> Text("Roman: evenimentele demonstrative nu sunt observații validate. Modul observațional indisponibil.", modifier = Modifier.padding(16.dp))
                 AdvancedTab.AR_SKY_CAMERA -> ArSkyCameraScreen(
                     arService = viewModel.arSkyTrackerService,
