@@ -95,6 +95,22 @@ class PureTicCatalogRepository @Inject constructor(
                     else -> "; validare temporala indisponibila"
                 }
 
+                val auditNote = runCatching {
+                    val audit = j.getAsJsonObject("timing_audit") ?: return@runCatching ""
+                    require(additional == null && audit.get("experimentId").asString == experiment)
+                    val reference = audit.get("referencePeriodDays").asDouble
+                    require(reference.isFinite() && abs(reference-number("period_days"))/number("period_days") <= 0.01)
+                    val checks = audit.getAsJsonArray("checks")
+                    require(checks.size() in 1..5)
+                    val matching = checks.count { element ->
+                        val check = element.asJsonObject
+                        check.get("status").asString == "CONDITIONAL_COMPATIBILITY" &&
+                            check.get("periodDays")?.asDouble?.let { it.isFinite() && abs(it-reference)/reference <= 0.01 } == true
+                    }
+                    require(matching == audit.get("matchingChecks").asInt)
+                    "; audit temporal raportat: $matching/${checks.size()} verificari compatibile; neconfirmat"
+                }.getOrDefault("; audit temporal inconsistent")
+
                 PureTicCandidate(
                     ticId = tic, name = "TIC $tic", sector = string("sector"),
                     apparentMag = j.get("tmag").asDouble.also { require(it.isFinite()) },
@@ -105,7 +121,7 @@ class PureTicCatalogRepository @Inject constructor(
                     discoveryOrigin = if (additional == null) "Analiza fotometrica TESS independenta" else "Cautare BLS suplimentara pe aceleasi observatii",
                     whyNoToi = "Fara potrivire de perioada in tabelele interogate; noutate neconfirmata",
                     potentialPlanetaryType = "Semnal de tranzit nevalidat",
-                    scientificNotes = "Experiment: $experiment; comparatie: $evidence; filtrare preliminara trecuta, validare independenta necesara" + noiseNote + phaseNote,
+                    scientificNotes = "Experiment: $experiment; comparatie: $evidence; filtrare preliminara trecuta, validare independenta necesara" + noiseNote + phaseNote + auditNote,
                     scientificPriority = "TRIAJ OBSERVATIONAL • SNR ${String.format(Locale.US, "%.1f", snr)} (necalibrat)",
                     isLiveIngested = true, ingestionTimestamp = row.timestamp, snrSigma = snr
                 )
