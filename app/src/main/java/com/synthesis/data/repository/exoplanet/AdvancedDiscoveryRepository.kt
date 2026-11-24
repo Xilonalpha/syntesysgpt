@@ -17,7 +17,8 @@ class AdvancedDiscoveryRepository @Inject constructor(
     private val platoEngine: PlatoAsteroseismologyEngine,
     private val jwstEngine: JwstTransmissionSpectroscopyEngine,
     private val exomoonEngine: ExomoonTidalOceanEngine,
-    private val spaceWeatherEngine: SpaceWeatherMagnetosphereEngine
+    private val spaceWeatherEngine: SpaceWeatherMagnetosphereEngine,
+    private val ttvEngine: TtvInversionEngine
 ) {
 
     fun getCuratedPlatoAsteroseismicTargets(): List<PlatoAsteroseismicResult> = emptyList()
@@ -63,4 +64,30 @@ class AdvancedDiscoveryRepository @Inject constructor(
     ): ApertureDilutionEstimate = withContext(Dispatchers.Default) {
         dilutionEngine.deblendMeasured(depth, depthError, target, targetError, contaminant, contaminantError)
     }
+
+    suspend fun fitMeasuredTimings(observations: List<TransitTiming>): LinearEphemeris =
+        withContext(Dispatchers.Default) { ttvEngine.fitMeasuredTimings(observations) }
+
+    suspend fun enumerateMeasuredAliases(firstEpoch: Double, secondEpoch: Double,
+        firstErrorDays: Double, secondErrorDays: Double, correlation: Double,
+        minPeriodDays: Double, maxPeriodDays: Double): List<OrbitalAlias> =
+        withContext(Dispatchers.Default) {
+            harmonicStitcherEngine.enumerateMeasuredAliases(firstEpoch, secondEpoch,
+                firstErrorDays, secondErrorDays, correlation, minPeriodDays, maxPeriodDays)
+        }
+
+    suspend fun evaluateMeasuredContrast(bins: List<MeasuredSpectralBin>,
+        feature: ClosedFloatingPointRange<Double>, continuum: ClosedFloatingPointRange<Double>): SpectralContrast =
+        withContext(Dispatchers.Default) { jwstEngine.evaluateMeasuredContrast(bins, feature, continuum) }
+
+    suspend fun evaluateReaction(temperatureK: Double, standardGibbsJPerMol: Double,
+        species: List<ReactionSpecies>): ReactionEnergy =
+        withContext(Dispatchers.Default) { biosignatureEngine.evaluateReaction(temperatureK, standardGibbsJPerMol, species) }
+
+    suspend fun evaluateMeasuredAsymmetry(ingressHours: Double, egressHours: Double,
+        ingressErrorHours: Double, egressErrorHours: Double, correlation: Double): TransitAsymmetryEstimate =
+        withContext(Dispatchers.Default) {
+            biosignatureEngine.evaluateMeasuredAsymmetry(ingressHours, egressHours,
+                ingressErrorHours, egressErrorHours, correlation)
+        }
 }
