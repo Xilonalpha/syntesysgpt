@@ -202,6 +202,7 @@ class XilonRepository @Inject constructor(
     }
 
     suspend fun crossMatchArchivalDatabases(cleanTic: String): ArchivalCrossMatch = withContext(Dispatchers.IO) {
+        require(cleanTic.matches(Regex("[0-9]+"))) { "Invalid TIC identifier" }
         try {
             val queryConfirmed = "SELECT pl_name,hostname,tic_id,disc_year,disc_facility,pl_orbper,pl_trandur,pl_trandep,pl_rade,pl_bmasse,pl_eqt FROM pscomppars WHERE tic_id='TIC $cleanTic' "
             val confirmedList = exoplanetArchiveApi.queryConfirmedTable(queryConfirmed)
@@ -274,8 +275,9 @@ class XilonRepository @Inject constructor(
 
             val resp = mastPortalApi.invokeService(reqPayload.toString())
             val dataArray = resp.getAsJsonArray("data")
-            if (dataArray != null && dataArray.size() > 0) {
+            if (dataArray != null && dataArray.size() == 1) {
                 val row = dataArray[0].asJsonObject
+                require(row.get("ID")?.asString == ticId) { "MAST TIC identity mismatch" }
                 val star = MastStarProperties(
                     ticId = ticId,
                     tMag = row.get("Tmag")?.takeIf { !it.isJsonNull }?.asDouble,
