@@ -45,7 +45,10 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument('--tic', type=int, required=True)
     p.add_argument('--output', type=Path, required=True)
+    p.add_argument('--sector', type=int)
     a = p.parse_args()
+    if a.sector is not None and a.sector <= 0:
+        p.error('Positive sector required')
     if a.tic <= 0 or a.output.exists():
         p.error('Positive TIC and new output directory required')
     from astroquery.mast import Observations
@@ -67,8 +70,10 @@ def main():
             raise RuntimeError('No SPOC observations found for resolved TIC')
         products = Observations.get_product_list(obs)
         candidates = exact_products(products, a.tic)
+    if a.sector is not None:
+        candidates = [uri for uri in candidates if f'-s{a.sector:04d}-' in uri.rsplit('/', 1)[-1]]
     if not candidates:
-        raise RuntimeError('No SPOC light curve found')
+        raise RuntimeError('No SPOC light curve found for requested selection')
     a.output.mkdir(parents=True)
     attempts = []
     metadata = None
@@ -81,7 +86,10 @@ def main():
                 if status != 'COMPLETE' or not path.is_file():
                     raise RuntimeError(f'MAST download failed: {status} {message}')
                 record["sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
-                metadata = validate_fits(path, a.tic)
+                verified = validate_fits(path, a.tic)
+                if a.sector is not None and verified['sector'] != a.sector:
+                    raise ValueError('FITS sector mismatch')
+                metadata = verified
                 record["status"] = "accepted"
             except Exception as exc:
                 record.update(status="rejected", error=f"{type(exc).__name__}: {exc}")
@@ -89,7 +97,7 @@ def main():
                 print(f"Rejected {uri}, attempt {attempt}: {exc}", flush=True)
             finally:
                 attempts.append(record)
-                (a.output / 'download_attempts.json').write_text(json.dumps(attempts, indent=2) + '\\n')
+                (a.output / 'download_attempts.json').write_text(json.dumps(attempts, indent=2) + '\n')
             if metadata is not None:
                 break
         if metadata is not None:
