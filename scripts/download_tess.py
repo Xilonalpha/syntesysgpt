@@ -1,7 +1,14 @@
 """Download a SPOC light curve from MAST, without synthetic fallback."""
 import argparse
 from pathlib import Path
-from astroquery.mast import Observations
+
+
+
+def exact_products(products, tic):
+    return sorted({str(row["dataURI"]) for row in products
+                   if str(row["productFilename"]).endswith("_lc.fits")
+                   and str(row["dataURI"]).startswith("mast:TESS/product/")
+                   and f"-{tic:016d}-" in str(row["dataURI"]).rsplit("/", 1)[-1]})
 
 
 def main():
@@ -11,6 +18,7 @@ def main():
     a = p.parse_args()
     if a.tic <= 0 or a.output.exists():
         p.error('Positive TIC and new output directory required')
+    from astroquery.mast import Observations
     obs = Observations.query_criteria(obs_collection='TESS', provenance_name='SPOC', target_name=str(a.tic))
     if not len(obs):
         # Resolve the TIC to sky coordinates; CAOM target names are not always TIC IDs.
@@ -27,9 +35,7 @@ def main():
         if not len(obs):
             raise RuntimeError('No SPOC observations found for resolved TIC')
     products = Observations.get_product_list(obs)
-    candidates = sorted({str(row['dataURI']) for row in products if str(row['productFilename']).endswith('_lc.fits') and str(row['dataURI']).startswith('mast:TESS/product/')})
-    # SPOC filenames encode the exact TIC; never accept a nearby target.
-    candidates = [uri for uri in candidates if f'-{a.tic:016d}-' in uri.rsplit('/', 1)[-1]]
+    candidates = exact_products(products, a.tic)
     if not candidates:
         raise RuntimeError('No SPOC light curve found')
     a.output.mkdir(parents=True)
