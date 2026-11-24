@@ -88,9 +88,24 @@ class PureTicCatalogRepository @Inject constructor(
                 "; concordanta preliminara intre etichete de sector distincte; independenta produselor si faza neverificate")
         } }.sortedWith(compareByDescending<PureTicCandidate> { it.snrSigma }
             .thenByDescending { it.ingestionTimestamp }.thenBy { it.ticId })
-            .distinctBy { it.ticId } }
+            .let { ranked ->
+                val retained = mutableListOf<PureTicCandidate>()
+                for (candidate in ranked) {
+                    val period = candidate.estimatedPeriodDays ?: continue
+                    if (retained.none { previous ->
+                        val previousPeriod = previous.estimatedPeriodDays
+                        previous.ticId == candidate.ticId && previousPeriod != null &&
+                            abs(previousPeriod - period) / maxOf(previousPeriod, period) <= 0.01
+                    }) retained.add(candidate)
+                }
+                retained
+            } }
         .stateIn(repositoryScope, SharingStarted.Eagerly, emptyList())
     fun getPureTicCatalog(): List<PureTicCandidate> = dynamicCatalogFlow.value
+    fun getCandidatesByTic(ticId: String): List<PureTicCandidate> =
+        dynamicCatalogFlow.value.filter { it.ticId == ticId }
+
+    // Legacy single-target callers receive the highest-ranked signal.
     fun getCandidateByTic(ticId: String): PureTicCandidate? =
         dynamicCatalogFlow.value.firstOrNull { it.ticId == ticId }
 
