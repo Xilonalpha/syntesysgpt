@@ -109,6 +109,7 @@ fun XilonDiscoveryScreen(
     val activeGeminiModel by viewModel.activeGeminiModel.collectAsState()
     val availableGeminiModels = viewModel.availableGeminiModels
     val sparkReport by viewModel.sparkReport.collectAsState()
+    val sparkError by viewModel.sparkError.collectAsState()
     val isSparkRunning by viewModel.isSparkRunning.collectAsState()
     val dipReport by viewModel.dipScanReport.collectAsState()
     val selectedDip by viewModel.selectedDip.collectAsState()
@@ -223,6 +224,9 @@ fun XilonDiscoveryScreen(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            if (sparkError != null) {
+                item { Text(sparkError.orEmpty(), color = AccentAmber) }
+            }
             // Header Cyber Card
             item {
                 Surface(
