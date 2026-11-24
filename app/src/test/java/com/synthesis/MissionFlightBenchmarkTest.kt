@@ -15,7 +15,7 @@ class MissionFlightBenchmarkTest {
     private val fitsReaderService = FitsReaderService()
 
     @Test
-    fun testAllTenGoldenTruthPlanetsAchieveFlightQualification() {
+    fun testLocalFormulaChecksExcludeUnconfirmedTransit() {
         println("=== PILONUL 1: NASA GROUND-TRUTH V&V BENCHMARK MATRIX ===")
         val dossier = benchmarkEngine.runFullFlightQualificationSuite()
 
@@ -30,7 +30,8 @@ class MissionFlightBenchmarkTest {
             println(res.formatSummary())
             assertNull(res.bayesianConfidenceScore)
             assertNull(res.chiSquaredNu)
-            assertEquals(res.maxErrorPercent <= 1.2, res.isFlightQualified)
+            assertEquals(res.maxErrorPercent <= 1.2 && res.planet.name != "Proxima Centauri b", res.isFlightQualified)
+            if (res.planet.name == "Proxima Centauri b") assertFalse(res.isFlightQualified)
         }
 
         assertEquals(100.0 * dossier.passedBenchmarksCount / dossier.totalBenchmarksCount, dossier.qualificationRatePercent, 0.01)
