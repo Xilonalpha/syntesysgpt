@@ -208,6 +208,12 @@ class DeepHuntViewModel @Inject constructor(
                                     addProperty("depth_ppm", extra.transitDepthPpm)
                                     addProperty("duration_hours", extra.transitDurationHours)
                                     addProperty("snr", extra.transitSnr)
+                                    extra.residualNoise?.let { add("residual_noise", com.google.gson.Gson().toJsonTree(it)) }
+                                    extra.blockAdjustedSnr?.let { addProperty("adjusted_snr", it) }
+                                    addProperty("noise_calibration_status", "EXPLORATORY_UNCALIBRATED")
+                                    addProperty("epoch_bjd", extra.epochBjd)
+                                    addProperty("phase_validation", "NOT_ASSESSED_NO_TIMING_UNCERTAINTY")
+                                    add("product_provenance", com.google.gson.Gson().toJsonTree(result.products))
                                     addProperty("sector", result.target.sectorOrQuarter)
                                     addProperty("catalog_status", catalog)
                                     addProperty("comparison_evidence", signalId)
