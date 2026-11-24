@@ -33,34 +33,42 @@ class RomanAndArEnginesTest {
         assertTrue("Magnification for small u must exceed 15x", aClose > 15.0)
     }
 
+    private fun syntheticEvent(binary: Boolean) = com.synthesis.domain.model.exoplanet.MicrolensingEvent(
+        eventId = "SYNTHETIC-TEST", targetName = "Synthetic fixture",
+        raDeg = 270.0, decDeg = -28.0, sourceDistanceKpc = 8.0, lensDistanceKpc = 4.0,
+        impactParameterU0 = 0.1, einsteinCrossingTimeDays = if (binary) 34.0 else 0.1,
+        peakMagnificationA0 = romanEngine.paczynskiMagnification(0.1),
+        isFreeFloatingPlanet = !binary, planetMassEarth = 1.0,
+        massRatioQ = if (binary) 0.001 else null, separationS = if (binary) 1.4 else null,
+        lensType = "Synthetic", surveyOrigin = "Unit test", discoveryConfidencePercent = 0.0,
+        description = "Not an observation"
+    )
+
     @Test
     fun testRomanRoguePlanetInversion() {
-        val events = romanEngine.getBenchmarkEvents()
-        val ogleRogue = events.first { it.eventId == "OGLE-2016-BLG-1928" }
-
-        val result = romanEngine.invertMicrolensingEvent(ogleRogue)
-
-        assertTrue("OGLE-2016-BLG-1928 must be classified as free-floating planet", result.isFreeFloating)
-        assertTrue("Rogue planet mass should be sub-Earth to low Earth mass", result.inferredMassEarth in 0.1..10.0)
-        assertTrue("Einstein crossing time must be under 5 hours", result.crossingDurationHours < 5.0)
-        assertTrue("Light curve must be populated", result.lightCurve.isNotEmpty())
-        assertEquals(ogleRogue.eventId, result.eventId)
+        assertTrue(romanEngine.getBenchmarkEvents().isEmpty())
+        val event = syntheticEvent(false)
+        val result = romanEngine.invertMicrolensingEvent(event)
+        val expected = Math.pow(6.5 * 0.1 / 365.25, 2.0) / (8.144 * 0.125) * 333000.0
+        assertEquals(expected, result.inferredMassEarth, 0.0051)
+        assertEquals(101, result.lightCurve.size)
+        assertTrue(result.astrophysicalSummary.contains("Conditional"))
     }
 
     @Test
     fun testRomanColdJupiterBinaryCausticLightCurve() {
-        val events = romanEngine.getBenchmarkEvents()
-        val jupiterEvent = events.first { it.eventId == "ROMAN-2026-SNOWLINE-J1" }
+        val event = syntheticEvent(true)
+        val result = romanEngine.invertMicrolensingEvent(event)
+        val expected = Math.pow(6.5 * 34.0 / 365.25, 2.0) / (8.144 * 0.125) * 0.001 * 333000.0
+        assertEquals(expected, result.inferredMassEarth, 0.0051)
+        assertFalse(result.isFreeFloating)
+        assertEquals(101, result.lightCurve.size)
+        assertTrue(result.astrophysicalSummary.contains("no planet confirmation or binary-lens fit"))
+    }
 
-        val result = romanEngine.invertMicrolensingEvent(jupiterEvent)
-
-        assertFalse("Bound Jupiter cannot be free floating", result.isFreeFloating)
-        assertTrue("Inferred Jupiter mass should exceed 0.5 M_Jup", result.inferredMassJupiter > 0.5)
-        assertTrue("Peak magnification must be high (> 8x)", result.peakMagnification >= 8.0)
-
-        // Check caustic crossing existence
-        val hasCaustic = result.lightCurve.any { it.isCausticCrossing }
-        assertTrue("Binary planet-star lens must generate caustic crossing points", hasCaustic)
+    @Test(expected = IllegalArgumentException::class)
+    fun testRomanRejectsInvalidDistance() {
+        romanEngine.invertMicrolensingEvent(syntheticEvent(false).copy(lensDistanceKpc = 9.0))
     }
 
     @Test
