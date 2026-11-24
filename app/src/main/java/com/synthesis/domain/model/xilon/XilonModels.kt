@@ -108,3 +108,13 @@ data class TargetStarCandidate(
     val advisoryPriority: String = "MEDIUM", // HIGH_VALUE_UNVETTED, HABITABLE_ZONE_BLINDSPOT, BENCHMARK_CONTROL
     val scientificReason: String = "Candidate star from TESS survey."
 )
+
+/** UI state only; does not establish scientific validation. */
+sealed interface XilonUiState {
+    data class Idle(val curatedTargets: List<TargetStarCandidate>, val lastResult: XilonDetectionResult? = null) : XilonUiState
+    data class Scanning(val ticId: String, val stage: String, val stageIndex: Int, val totalStages: Int) : XilonUiState
+    data class Success(val result: XilonDetectionResult, val curatedTargets: List<TargetStarCandidate>) : XilonUiState
+    data class Error(val message: String, val curatedTargets: List<TargetStarCandidate>) : XilonUiState
+}
+
+data class XilonAiChatMessage(val sender: String, val text: String, val isUser: Boolean)
