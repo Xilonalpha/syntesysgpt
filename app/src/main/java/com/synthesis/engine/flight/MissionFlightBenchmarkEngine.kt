@@ -18,7 +18,7 @@ import kotlin.math.pow
 import kotlin.math.sqrt
 
 /**
- * NASA TRL 8/9 Mission Flight Benchmark & Qualification Engine.
+ * Illustrative mission formula regression benchmark; not NASA qualification.
  *
  * Implements automated Verification & Validation (V&V) against 10 Golden Truth
  * exoplanet benchmarks published in peer-reviewed astronomical literature and
@@ -241,7 +241,7 @@ class MissionFlightBenchmarkEngine @Inject constructor(
         val tempError = abs(derivedTeqK - ref.trueEquilibriumTempK) / ref.trueEquilibriumTempK * 100.0
 
         val maxErr = max(radiusError, max(semiMajorAxisError, tempError))
-        val isQualified = maxErr <= 1.2 // NASA Mission acceptance threshold (1.2% maximum variance)
+        val isQualified = maxErr <= 1.2 && ref.name != "Proxima Centauri b" // Internal tolerance only; Proxima b has no confirmed transit.
 
         return BenchmarkValidationResult(
             planet = ref,
