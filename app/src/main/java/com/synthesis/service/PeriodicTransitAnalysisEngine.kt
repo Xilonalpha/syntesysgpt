@@ -121,7 +121,8 @@ class PeriodicTransitAnalysisEngine @Inject constructor(
         nPhaseBins: Int = 100,
         periodSteps: Int = 600,
         allowStellarRetry: Boolean = true,
-        allowPeakRetry: Boolean = true
+        allowPeakRetry: Boolean = true,
+        globalPowerReference: Pair<Double, Double>? = null
     ): PeriodicTransitDetectionResult {
         val n = times.size
         if (n < 8 || fluxes.size != n || errors.size != n || times.any { !it.isFinite() } || fluxes.any { !it.isFinite() } || errors.any { !it.isFinite() || it <= 0.0 } || times.distinct().size != n || nPhaseBins < 6 || periodSteps < 20) {
@@ -269,7 +270,8 @@ class PeriodicTransitAnalysisEngine @Inject constructor(
         val meanPower = powers.average()
         val stdPower = sqrt(powers.map { (it - meanPower).pow(2) }.average())
         if (!stdPower.isFinite() || stdPower <= 0.0) return fallbackNoDetection("Periodogramă fără variație")
-        val sde = (bestPower - meanPower) / stdPower
+        val sde = globalPowerReference?.let { (bestPower - it.first) / it.second }
+            ?: ((bestPower - meanPower) / stdPower)
 
         // 7. Phase Folding at Best Period and Epoch
         val phaseFoldedPoints = mutableListOf<PhaseFoldedPoint>()
@@ -413,20 +415,22 @@ class PeriodicTransitAnalysisEngine @Inject constructor(
                     (powers[i] - meanPower) / stdPower >= 6.0 &&
                     abs(1.0 / periodogram[i].periodDays - 1.0 / bestPeriod) > 2 * freqStep
             }.sortedByDescending { powers[it] }.take(5)
-            for (i in peaks) {
-                val peak = periodogram[i]
-                val candidate = runBlsPipeline(times, fluxes, errors,
-                    periodogram[i + 1].periodDays, periodogram[i - 1].periodDays,
+            val harmonicIndices = listOf(bestPeriod / 2.0, bestPeriod * 2.0)
+                .filter { it in pMin..pMax }
+                .map { target -> periodogram.indices.minByOrNull {
+                    abs(1.0 / periodogram[it].periodDays - 1.0 / target)
+                }!! }
+            for (i in (harmonicIndices + peaks).distinct()) {
+                val lo = periodogram[min(i + 1, periodogram.lastIndex)].periodDays
+                val hi = periodogram[max(i - 1, 0)].periodDays
+                if (hi <= lo) continue
+                val candidate = runBlsPipeline(times, fluxes, errors, lo, hi,
                     hostStarRadiusSolar, hostStarMassSolar, hostStarTeffK,
-                    nPhaseBins, 20, false, false)
-                // Narrow-grid SDE is not comparable to the global SDE.
-                // Require the existing full vetting as well as the global peak threshold.
+                    nPhaseBins, 20, false, false, meanPower to stdPower)
                 if (candidate.isDetected) {
-                    val globalSde = (peak.power - meanPower) / stdPower
-                    return candidate.copy(signalDetectionEfficiencySde = globalSde,
-                        periodogram = periodogram,
-                        statusSummary = "Maxim BLS alternativ; SDE global = " +
-                            String.format("%.2f", globalSde) +
+                    return candidate.copy(periodogram = periodogram,
+                        statusSummary = "Maxim BLS alternativ sau armonic; SDE raportat la grila globală = " +
+                            String.format("%.2f", candidate.signalDetectionEfficiencySde) +
                             ". Semnal preliminar; natura planetară nu este confirmată.")
                 }
             }
