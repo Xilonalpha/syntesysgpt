@@ -1,5 +1,8 @@
 """Download a SPOC light curve from MAST, without synthetic fallback."""
 import argparse
+import hashlib
+import json
+import warnings
 from pathlib import Path
 
 
@@ -9,6 +12,27 @@ def exact_products(products, tic):
                    if str(row["productFilename"]).endswith("_lc.fits")
                    and str(row["dataURI"]).startswith("mast:TESS/product/")
                    and f"-{tic:016d}-" in str(row["dataURI"]).rsplit("/", 1)[-1]})
+
+
+def validate_fits(path, tic):
+    from astropy.io import fits
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        with fits.open(path, checksum=True) as hdus:
+            hdus.verify("exception")
+            header = hdus[0].header
+            if int(header.get("TICID", -1)) != tic:
+                raise ValueError("FITS TICID does not match requested target")
+            if str(header.get("TELESCOP", "")).strip().upper() != "TESS":
+                raise ValueError("FITS telescope is not TESS")
+            if "LIGHTCURVE" not in hdus:
+                raise ValueError("Missing LIGHTCURVE extension")
+            data = hdus["LIGHTCURVE"].data
+            if data is None or len(data) == 0:
+                raise ValueError("Empty light curve")
+            if not {"TIME", "PDCSAP_FLUX", "QUALITY"}.issubset(data.names):
+                raise ValueError("Missing required SPOC light curve columns")
+            return {"tic": tic, "sector": int(header["SECTOR"]), "rows": len(data)}
 
 
 def main():
@@ -44,6 +68,15 @@ def main():
     status, message, url = Observations.download_file(uri, local_path=str(path), cache=False)
     if status != 'COMPLETE' or not path.is_file():
         raise RuntimeError(f'MAST download failed: {status} {message}')
+    try:
+        metadata = validate_fits(path, a.tic)
+    except Exception:
+        path.unlink(missing_ok=True)
+        raise
+    metadata.update(source_uri=uri, candidate_uris=candidates,
+                    selection_policy="lexicographically_first_exact_product",
+                    sha256=hashlib.sha256(path.read_bytes()).hexdigest())
+    (a.output / 'download_manifest.json').write_text(json.dumps(metadata, indent=2) + '\n')
     (a.output / 'source_uri.txt').write_text(uri + '\n')
     print(path)
 
