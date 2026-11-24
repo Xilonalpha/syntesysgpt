@@ -1,0 +1,81 @@
+name: TESS combined sectors and multiple signals
+on:
+  workflow_dispatch:
+    inputs:
+      tic:
+        description: Verified TIC identifier
+        required: true
+        default: '402026209'
+      sectors:
+        description: Space-separated sector numbers
+        required: true
+        default: '28 29'
+      min_period:
+        description: Minimum search period in days
+        required: true
+        default: '1.0'
+      max_period:
+        description: Maximum search period in days
+        required: true
+        default: '2.0'
+      expected:
+        description: Independently verified reference periods, comma-separated
+        required: true
+        default: '1.338230994'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install scientific dependencies
+        run: python -m pip install numpy==1.26.4 astropy==6.1.7 astroquery==0.4.10
+      - name: Run scientific integrity unit tests
+        run: python -m unittest discover -s scripts -p 'test_*.py' -v
+      - name: Install Kotlin compiler
+        run: |
+          curl --fail --location --retry 3 -o "$RUNNER_TEMP/kotlin.zip" https://github.com/JetBrains/kotlin/releases/download/v2.0.21/kotlin-compiler-2.0.21.zip
+          unzip -q "$RUNNER_TEMP/kotlin.zip" -d "$RUNNER_TEMP/kotlin"
+          echo "$RUNNER_TEMP/kotlin/kotlinc/bin" >> "$GITHUB_PATH"
+      - name: Download and replay authentic observations
+        env:
+          TIC: ${{ inputs.tic }}
+          SECTORS: ${{ inputs.sectors }}
+          LO: ${{ inputs.min_period }}
+          HI: ${{ inputs.max_period }}
+          EXPECTED: ${{ inputs.expected }}
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          printf '%s\n' "$GITHUB_SHA" "$TIC" "$SECTORS" "$LO" "$HI" "$EXPECTED" > evidence/inputs.txt
+          [[ "$TIC" =~ ^[0-9]+$ ]]
+          read -ra IDS <<< "$SECTORS"
+          [[ ${#IDS[@]} -ge 1 && ${#IDS[@]} -le 5 ]]
+          FITS=()
+          for sector in "${IDS[@]}"; do
+            [[ "$sector" =~ ^[0-9]+$ ]]
+            python scripts/download_tess.py --tic "$TIC" --sector "$sector" --output "evidence/mast/$sector" 2>&1 | tee "evidence/download-$sector.log"
+            mapfile -t FOUND < <(find "evidence/mast/$sector" -name '*_lc.fits' -type f)
+            [[ ${#FOUND[@]} == 1 ]]
+            FITS+=("${FOUND[0]}")
+          done
+          if [[ ${#FITS[@]} == 1 ]]; then
+            python scripts/prepare_tess.py "${FITS[0]}" evidence/observations.csv --tic "$TIC"
+          else
+            python scripts/prepare_tess_multisector.py --tic "$TIC" --output evidence/observations.csv "${FITS[@]}"
+          fi
+          bash scripts/run_tess_multi_validation.sh evidence/observations.csv "$TIC" "$LO" "$HI" "$EXPECTED" "${FITS[@]}" 2>&1 | tee evidence/result.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tess-combined-evidence
+          path: evidence/
