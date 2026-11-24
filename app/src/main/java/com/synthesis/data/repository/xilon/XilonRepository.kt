@@ -117,6 +117,42 @@ class XilonRepository @Inject constructor(
     /** Independent chronological FITS search; catalog/TCE ephemerides are not inputs.
      * Results remain preliminary and must not be classified as novel planets.
      */
+    /** Select real TIC targets independently of the TOI catalog. Selection is not evidence of novelty. */
+    suspend fun selectIndependentTicTargets(maxTmag: Double, page: Int, pageSize: Int): List<String> = withContext(Dispatchers.IO) {
+        require(maxTmag.isFinite() && maxTmag in 0.0..20.0)
+        require(page >= 1 && pageSize in 1..100)
+        val request = JsonObject().apply {
+            addProperty("service", "Mast.Catalogs.Filtered.Tic")
+            addProperty("format", "json")
+            addProperty("page", page)
+            addProperty("pagesize", pageSize)
+            add("params", JsonObject().apply {
+                addProperty("columns", "ID,Tmag")
+                add("filters", com.google.gson.JsonArray().apply {
+                    add(JsonObject().apply {
+                        addProperty("paramName", "Tmag")
+                        add("values", com.google.gson.JsonArray().apply {
+                            add(JsonObject().apply {
+                                addProperty("min", 0.0)
+                                addProperty("max", maxTmag)
+                            })
+                        })
+                    })
+                })
+            })
+        }
+        val response = mastPortalApi.invokeService(request.toString())
+        require(response.get("status")?.asString == "COMPLETE") { "MAST TIC query incomplete" }
+        val rows = requireNotNull(response.getAsJsonArray("data")) { "Missing TIC rows" }
+        rows.mapNotNull { element ->
+            val row = element.asJsonObject
+            val id = row.get("ID")?.takeUnless { it.isJsonNull }?.asString
+            val mag = row.get("Tmag")?.takeUnless { it.isJsonNull }?.asDouble
+            if (id != null && id.matches(Regex("[0-9]+")) && mag != null &&
+                mag.isFinite() && mag in 0.0..maxTmag) id else null
+        }.distinct().take(pageSize)
+    }
+
     suspend fun runIndependentSearch(
         ticId: String,
         synchronization: com.synthesis.service.MastDataSynchronizationService
