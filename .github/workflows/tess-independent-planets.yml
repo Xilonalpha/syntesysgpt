@@ -1,6 +1,11 @@
 name: TESS independent planet pilot
 on:
   workflow_dispatch:
+    inputs:
+      constrained:
+        description: Experimental stellar duration constraint
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -92,7 +97,9 @@ jobs:
           python scripts/prepare_tess.py "$FITS" evidence/observations.csv --tic "$TIC"
           mapfile -t STELLAR < <(python -c 'import json,math; r=json.load(open("evidence/catalog_reference.json")); assert r["status"]=="PASS"; row=r["catalog_rows"][0]; print("\n".join(str(v) if isinstance(v,(int,float)) and math.isfinite(v) and v>0 else "NaN" for v in (row.get("st_rad"),row.get("st_mass"),row.get("st_teff"))))')
           [[ ${#STELLAR[@]} == 3 ]]
-          bash scripts/run_tess_validation.sh evidence/observations.csv "$EXPECTED" "$FITS" "$TIC" "${STELLAR[@]}" 2>&1 | tee evidence/result.log
+          MODE=()
+          if [[ "${{ inputs.constrained }}" == "true" ]]; then MODE+=(constrained); fi
+          bash scripts/run_tess_validation.sh evidence/observations.csv "$EXPECTED" "$FITS" "$TIC" "${STELLAR[@]}" "${MODE[@]}" 2>&1 | tee evidence/result.log
       - name: Preserve evidence even on failure
         if: always()
         uses: actions/upload-artifact@v4
