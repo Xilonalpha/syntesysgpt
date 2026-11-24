@@ -27,6 +27,8 @@ jobs:
           java-version: '17'
       - name: Install scientific dependencies
         run: python -m pip install numpy==1.26.4 astropy==6.1.7 astroquery==0.4.10
+      - name: Run scientific integrity unit tests
+        run: python -m unittest discover -s scripts -p 'test_*.py' -v
       - name: Install Kotlin compiler
         run: |
           curl --fail --location --retry 3 -o "$RUNNER_TEMP/kotlin.zip" https://github.com/JetBrains/kotlin/releases/download/v2.0.21/kotlin-compiler-2.0.21.zip
