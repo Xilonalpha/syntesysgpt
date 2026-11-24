@@ -22,6 +22,7 @@ fun ScientificCalculationLab(viewModel: AdvancedDiscoveryViewModel, modes: List<
         onDispose { viewModel.cancelScientificCalculation() }
     }
     val hint = when (mode) {
+        "Magnetopauză" -> "Câmp ecuatorial (Tesla); densitate protoni (cm⁻³); viteză (km/s)."
         "TTV" -> "Ciclu întreg; epocă (zile); eroare (zile). Un tranzit pe linie, aceeași scară temporală."
         "Orbite" -> "Epoca 1; epoca 2; eroare 1; eroare 2; corelație; perioada minimă; perioada maximă. Zile."
         "Spectru" -> "Lungime de undă (µm); adâncime (ppm); eroare (ppm). Un bin pe linie."
@@ -64,6 +65,7 @@ fun ScientificCalculationLab(viewModel: AdvancedDiscoveryViewModel, modes: List<
                 }
                 fun rows(count: Int) = raw.lineSequence().filter { it.isNotBlank() }.map { numbers(it, count) }.toList()
                 when (mode) {
+                    "Magnetopauză" -> numbers(raw, 3).let { viewModel.calculateMagnetopause(it[0],it[1],it[2]) }
                     "TTV" -> viewModel.calculateTimings(rows(3).map {
                         require(it[0] == it[0].toInt().toDouble())
                         TransitTiming(it[0].toInt(), it[1], it[2])
@@ -92,6 +94,7 @@ fun ScientificCalculationLab(viewModel: AdvancedDiscoveryViewModel, modes: List<
             is ScientificCalculationState.Error -> Text(current.message)
             is ScientificCalculationState.Success -> {
                 val result = when (val r = current.result) {
+                    is ScientificCalculationResult.Magnetopause -> "Presiune: ${r.value.ramPressureNanoPa} nPa; rază: ${r.value.standoffPlanetRadii} Rp; echilibru exterior: ${r.value.balanceAboveSurface}. Nu estimează retenția atmosferică."
                     is ScientificCalculationResult.Timing -> "Perioadă: ${r.value.periodDays} ± ${r.value.periodErrorDays} zile; χ² = ${r.value.chiSquared}; grade libertate: ${r.value.degreesOfFreedom}"
                     is ScientificCalculationResult.Aliases -> "Ipoteze: ${r.value.size}. Primele 50:\n" + r.value.take(50).joinToString("\n") { "${it.cycles}: ${it.periodDays} ± ${it.periodErrorDays} zile" }
                     is ScientificCalculationResult.Contrast -> "Contrast: ${r.value.contrastPpm} ± ${r.value.errorPpm} ppm; sigma locală semnată: ${r.value.signedSigma}"
