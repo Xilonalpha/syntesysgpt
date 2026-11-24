@@ -50,4 +50,16 @@ class BiosignatureTechnosignatureEngine @Inject constructor() {
     ): TechnosignatureCandidate {
         throw UnsupportedOperationException("Scientific analysis unavailable: observational validation required")
     }
+
+    /** Reaction-specific energy, not a biological probability. */
+    fun evaluateReaction(temperatureK: Double, standardGibbsJPerMol: Double,
+        species: List<ReactionSpecies>): ReactionEnergy =
+        AtmosphericReactionPhysics.evaluate(temperatureK, standardGibbsJPerMol, species)
+
+    /** Descriptive asymmetry, not a technosignature classification. */
+    fun evaluateMeasuredAsymmetry(ingressHours: Double, egressHours: Double,
+        ingressErrorHours: Double, egressErrorHours: Double,
+        correlation: Double): TransitAsymmetryEstimate =
+        TransitAsymmetryPhysics.evaluate(ingressHours, egressHours,
+            ingressErrorHours, egressErrorHours, correlation)
 }
