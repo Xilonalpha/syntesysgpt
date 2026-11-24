@@ -18,12 +18,15 @@ enum class DeepHuntTab(val title: String) {
     TESS_SURVEY_SCOUT("TESS Survey Scout (WorkManager)"),
     TTV_INVERSION("TTV Gravitational Inversion"),
     ATMOSPHERIC_TSM("JWST Atmospheric TSM"),
-    NEGLECTED_JEWELS("NASA Backlog Purgatory")
+    NEGLECTED_JEWELS("NASA Backlog Purgatory"),
+    INDEPENDENT_SEARCH("Independent FITS search")
 }
 
 @HiltViewModel
 class DeepHuntViewModel @Inject constructor(
     private val repository: UnvettedHuntRepository,
+    private val xilonRepository: com.synthesis.data.repository.xilon.XilonRepository,
+    private val mastSynchronization: com.synthesis.service.MastDataSynchronizationService,
     private val synthesizedResearchRepository: com.synthesis.data.repository.SynthesizedResearchRepository,
     private val tessSurveyWorkManager: TessSurveyWorkManager
 ) : ViewModel() {
@@ -56,6 +59,41 @@ class DeepHuntViewModel @Inject constructor(
 
     init {
         loadData()
+    }
+
+    private val _independentRunning = MutableStateFlow(false)
+    val independentRunning = _independentRunning.asStateFlow()
+    private val _independentStatus = MutableStateFlow("")
+    val independentStatus = _independentStatus.asStateFlow()
+
+    fun searchIndependentTargets(input: String) {
+        if (_independentRunning.value) return
+        val targets = input.split(Regex("[,;\\s]+")).filter { it.isNotBlank() }.distinct()
+        if (targets.size !in 1..5 || targets.any { !it.matches(Regex("[0-9]+")) }) {
+            _independentStatus.value = "Enter 1–5 numeric TIC identifiers"
+            return
+        }
+        _independentRunning.value = true
+        _independentStatus.value = ""
+        viewModelScope.launch {
+            try {
+                for (tic in targets) {
+                    val line = try {
+                        val result = xilonRepository.runIndependentSearch(tic, mastSynchronization).getOrThrow()
+                        val b = result.periodicDetection
+                        "TIC $tic: " + (if (b.isDetected) "Preliminary P=${b.bestPeriodDays} d; SNR=${b.transitSnr}" else "No accepted signal") +
+                            "; experiment=${result.experimentId}; novelty not assessed"
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        "TIC $tic: incomplete — ${e.message}"
+                    }
+                    _independentStatus.value += line + "\n"
+                }
+            } finally {
+                _independentRunning.value = false
+            }
+        }
     }
 
     fun selectTab(tab: DeepHuntTab) {
