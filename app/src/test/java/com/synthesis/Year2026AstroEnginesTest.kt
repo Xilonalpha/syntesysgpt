@@ -49,14 +49,17 @@ class Year2026AstroEnginesTest {
         println("Calculated Solar Radius: ${result.stellarRadiusSun} R_sun (Expected ~ 1.0)")
         println("Calculated Solar Density: ${result.meanStellarDensitySun} rho_sun (Expected ~ 1.0)")
         println("Planet Radius: ${result.planetRadiusEarth} R_Earth (Expected ~ 1.0)")
-        println("Radius Precision Error: ±${result.planetRadiusErrorPercent}% (PLATO Benchmark requirement <= 1.2%)")
+        println("Radius Precision Error: ±${result.planetRadiusErrorPercent}% (not assessed without uncertainties)")
 
         assertEquals(1.0, result.stellarMassSun, 0.02)
         assertEquals(1.0, result.stellarRadiusSun, 0.02)
         assertEquals(1.0, result.meanStellarDensitySun, 0.02)
         assertEquals(1.0, result.planetRadiusEarth, 0.05)
-        assertTrue("PLATO radius error must be <= 1.5%", result.planetRadiusErrorPercent <= 1.5)
-        assertTrue("Stellar age must be positive", result.stellarAgeGyr > 0.0)
+        assertEquals(4.438, result.surfaceGravityLogG, 1e-8)
+        assertTrue("No supplied measurement uncertainties", result.planetRadiusErrorPercent.isNaN())
+        assertTrue("No evolutionary track fit", result.stellarAgeGyr.isNaN())
+        assertTrue(result.mainSequenceLifetimeGyr.isNaN())
+        assertFalse(result.isOldEnoughForLife)
     }
 
     @Test
