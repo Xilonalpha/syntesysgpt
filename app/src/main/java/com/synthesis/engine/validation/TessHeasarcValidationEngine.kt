@@ -63,9 +63,11 @@ class TessHeasarcValidationEngine @Inject constructor(
         }
 
         warnings.add("Acoperire TESS, binară, centroid, contaminare, FAP și lob Roche neverificate.")
-        val status = ValidationStatus.MARGINAL_SNR_AMBIGUOUS
+        val binaryRisk = res.oddEvenTransitDeltaSigma.isFinite() && res.oddEvenTransitDeltaSigma >= 3.0
+        if (binaryRisk) warnings.add("RISC BINARĂ: diferență odd-even raportată >= 3 sigma; necesită verificare independentă.")
+        val status = if (binaryRisk) ValidationStatus.SUSPECTED_ECLIPSING_BINARY else ValidationStatus.MARGINAL_SNR_AMBIGUOUS
         val score = 0.0
-        val sanitizedSector = res.sector
+        val sanitizedSector = pointingAudit.suggestedCorrectSector
 
         return PreReportValidationDossier(
             targetTic = cleanTic,
@@ -98,7 +100,7 @@ class TessHeasarcValidationEngine @Inject constructor(
         val actualSectors = emptyList<Int>()
         val isObservedInClaimed = false
         val mismatch = false
-        val suggestedSector = claimedSectorStr
+        val suggestedSector = claimedSectorStr.removeSuffix(" (unverified)") + " (unverified)"
         val explanation = "Acoperire TESS neverificată; sunt necesare produse observaționale autentice."
 
         return TessPointingAuditResult(
@@ -135,9 +137,9 @@ class TessHeasarcValidationEngine @Inject constructor(
     fun calculateObservedSectors(ticId: String, lambdaDeg: Double, betaDeg: Double): List<Int> = emptyList()
 
     private fun extractSectorNumber(sectorStr: String): Int? {
-        val regex = Regex("""(?:Sector|s00|s0)(\d+)""", RegexOption.IGNORE_CASE)
-        val match = regex.find(sectorStr)
-        return match?.groupValues?.get(1)?.toIntOrNull()
+        val regex = Regex("""\b(?:sector\s*|s)(\d+)\b""", RegexOption.IGNORE_CASE)
+        val numbers = regex.findAll(sectorStr).mapNotNull { it.groupValues[1].toIntOrNull() }.distinct().toList()
+        return numbers.singleOrNull()?.takeIf { it > 0 }
     }
 
     private fun getUtcTimestampIso(): String {
