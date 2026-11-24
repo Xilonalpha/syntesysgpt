@@ -169,8 +169,8 @@ class PeriodicTransitAnalysisEngine @Inject constructor(
         val yWeightedMean = tClean.indices.sumOf { wNorm[it] * yClean[it] }
 
         // 4. Period Grid Determination
-        // For short local observations, search periods from fraction of hour up to 2x baseline
-        val pMin = minPeriodDays?.coerceAtLeast(0.02) ?: (tSpan * 0.15).coerceIn(0.05, 1.5)
+        // Default lower bound must not exclude short periods merely because the observation is longer.
+        val pMin = minPeriodDays?.coerceAtLeast(0.02) ?: (tSpan * 0.05).coerceIn(0.05, 0.25)
         val pMax = min(maxPeriodDays ?: 30.0, tSpan / 2.0)
         if (!pMin.isFinite() || !pMax.isFinite() || pMax <= pMin) return fallbackNoDetection("Interval insuficient pentru căutare periodică")
 
