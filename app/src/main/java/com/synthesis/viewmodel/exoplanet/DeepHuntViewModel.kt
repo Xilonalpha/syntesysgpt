@@ -73,10 +73,30 @@ class DeepHuntViewModel @Inject constructor(
             _independentStatus.value = "Enter 1–5 numeric TIC identifiers"
             return
         }
+        launchIndependentBatch { targets }
+    }
+
+    fun searchObservedSector(sectorInput: String, pageInput: String) {
+        if (_independentRunning.value) return
+        val sector = sectorInput.trim().toIntOrNull()
+        val page = pageInput.trim().toIntOrNull()
+        if (sector == null || sector <= 0 || page == null || page !in 1..10000) {
+            _independentStatus.value = "Enter a positive sector and page (1–10000)"
+            return
+        }
+        launchIndependentBatch {
+            mastSynchronization.discoverObservedTicIds(sector, page)
+        }
+    }
+
+    private fun launchIndependentBatch(selectTargets: suspend () -> List<String>) {
+        if (_independentRunning.value) return
         _independentRunning.value = true
-        _independentStatus.value = ""
+        _independentStatus.value = "Selecting targets...\n"
         viewModelScope.launch {
             try {
+                val targets = selectTargets()
+                _independentStatus.value = if (targets.isEmpty()) "No eligible targets returned on this page.\n" else "Selected TICs: ${targets.joinToString()}\n"
                 for (tic in targets) {
                     val line = try {
                         val result = xilonRepository.runIndependentSearch(tic, mastSynchronization).getOrThrow()
@@ -90,6 +110,10 @@ class DeepHuntViewModel @Inject constructor(
                     }
                     _independentStatus.value += line + "\n"
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _independentStatus.value += "Batch incomplete: ${e.message}\n"
             } finally {
                 _independentRunning.value = false
             }
