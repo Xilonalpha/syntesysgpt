@@ -82,61 +82,14 @@ class PlanetarySpectralAnomalyServiceTest {
         assertTrue(registry.isExoticOrBiosignatureMolecule("DMS"))
     }
 
-    @Test
-    fun testCompareUnknownTargetIdentifiesUniqueAnomaliesAndHighNovelty() {
-        val curated = service.getCuratedRetrievedSpectra()
-        val candidate = curated.first { it.targetName.contains("TIC 141913165") }
-
-        val result = service.compareAgainstPublicRegistry(candidate)
-
-        assertNotNull(result)
-        assertFalse("Candidate must not be registered in public benchmark archive", result.isTargetKnownInPublicRegistry)
-        assertTrue("Novelty index must be very high for uncataloged candidate with DMS & PH3", result.noveltyIndexPercent >= 75.0)
-        assertTrue("Identified anomalies list must not be empty", result.identifiedAnomalies.isNotEmpty())
-
-        val zeroPrior = result.identifiedAnomalies.find { it.anomalyType == SpectralAnomalyType.ZERO_PRIOR_ARCHIVE_TARGET }
-        assertNotNull("Must include zero prior archive anomaly", zeroPrior)
-
-        val exoticAnomalies = result.identifiedAnomalies.filter { it.anomalyType == SpectralAnomalyType.UNPRECEDENTED_MOLECULAR_BAND }
-        assertTrue("Must detect unprecedented molecular band anomaly", exoticAnomalies.isNotEmpty())
-        assertTrue("Max deviation sigma should be high (> 4 sigma)", result.maxDeviationSigma >= 4.0)
+    @Test fun testNoInventedRetrievedSpectra() {
+        assertTrue(service.getCuratedRetrievedSpectra().isEmpty())
     }
 
-    @Test
-    fun testCompareWasp39bVerificationConformsWithPublicRegistry() {
-        val curated = service.getCuratedRetrievedSpectra()
-        val wasp39 = curated.first { it.targetName.contains("WASP-39") }
-
-        val result = service.compareAgainstPublicRegistry(wasp39, "NASA-JWST-WASP-39b-PRISM")
-
-        assertTrue("WASP-39 b is a recognized benchmark target", result.isTargetKnownInPublicRegistry)
-        assertTrue("Novelty index should be low for exact calibration benchmark", result.noveltyIndexPercent < 50.0)
-        assertTrue("Verdict should indicate conformance", result.scientificVerdict.contains("CONFORM") || result.scientificVerdict.contains("MODERAT"))
-    }
-
-    @Test
-    fun testMetastableHeliumExosphereEscapeDetection() {
-        val curated = service.getCuratedRetrievedSpectra()
-        val heliumTarget = curated.first { it.targetName.contains("TOI-1895") }
-
-        val result = service.compareAgainstPublicRegistry(heliumTarget)
-
-        val heAnomaly = result.identifiedAnomalies.find {
-            it.anomalyType == SpectralAnomalyType.ANOMALOUS_DEPTH_SURGE &&
-                    it.candidateMoleculesOrMechanism.any { mol -> mol.contains("He I") }
-        }
-        assertNotNull("Must identify metastable Helium 1.083 um exosphere escape anomaly", heAnomaly)
-        assertTrue("Helium anomaly significance must be > 3 sigma", heAnomaly!!.statisticalSignificanceSigma >= 3.0)
-    }
-
-    @Test
-    fun testNasaArchiveTapDispositionQuery() = runBlocking {
-        val knownDisposition = service.queryNasaArchiveForTarget("WASP-39 b")
-        assertTrue("WASP-39 b should be found in mock archive", knownDisposition.isPresentInNasaArchive)
-        assertEquals(1, knownDisposition.confirmedPlanetsCount)
-
-        val unknownDisposition = service.queryNasaArchiveForTarget("TIC 141913165.01")
-        assertFalse("Uncataloged TIC target should have zero archive records", unknownDisposition.isPresentInNasaArchive)
-        assertEquals(0, unknownDisposition.confirmedPlanetsCount)
+    @Test fun testArchiveQueryFailsClosed() = runBlocking {
+        try {
+            service.queryNasaArchiveForTarget("WASP-39 b")
+            fail("Unverified archive query must not claim coverage")
+        } catch (expected: UnsupportedOperationException) { }
     }
 }
