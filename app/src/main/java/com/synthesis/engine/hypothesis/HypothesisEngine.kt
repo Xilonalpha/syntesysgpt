@@ -7,6 +7,10 @@ import javax.inject.Singleton
 @Singleton
 class HypothesisEngine @Inject constructor() {
 
+    /** Exploratory evidence links; no automatic confidence or confirmation. */
+    fun patternEvidence(observations: List<Observation>): List<com.synthesis.engine.discovery.PatternDetector.DetectedPattern> =
+        com.synthesis.engine.discovery.PatternDetector(com.synthesis.engine.normalizer.DataNormalizer()).detectHiddenPatterns(observations)
+
     data class HypothesisResult(
         val title: String,
         val description: String,
@@ -36,11 +40,18 @@ class HypothesisEngine @Inject constructor() {
             discriminatingTests = listOf(DiscriminatingTest(test, data, "Not established", "Not scheduled")),
             status = HypothesisStatus.PENDING
         )
-        return listOf(
+        val patterns = patternEvidence(observations)
+        val proposals = listOf(
             proposal("Known phenomenon", "Possible explanation; not evaluated.", "Compare against documented physical models", "Original observations and model uncertainties"),
             proposal("Previously unclassified phenomenon", "Novelty has not been established.", "Check independent observations and catalogs", "Independent data and catalog coverage"),
             proposal("Measurement artifact", "Instrumental effects have not been excluded.", "Reprocess and check calibration", "Raw data and calibration records"),
             proposal("Data synchronization problem", "Timing and coordinate errors have not been excluded.", "Audit time and coordinate references", "Original metadata")
+        )
+        return if (patterns.isEmpty()) proposals else proposals + proposal(
+            "Robust outlier follow-up",
+            "Exploratory flags for observation IDs: " + patterns.flatMap { it.involvedObservations }.distinct().joinToString(),
+            "Repeat measurements and test calibration and selection effects",
+            "Independent measurements and instrument uncertainty"
         )
     }
 
