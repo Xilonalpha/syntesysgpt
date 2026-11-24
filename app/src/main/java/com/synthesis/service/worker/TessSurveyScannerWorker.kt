@@ -46,6 +46,7 @@ class TessSurveyScannerWorker @AssistedInject constructor(
             val unvettedOnly = prefs.getBoolean(KEY_CRITERIA_UNVETTED_ONLY, true)
             val batchSize = prefs.getInt(KEY_CRITERIA_BATCH_SIZE, 6)
 
+            require(minSnr.isFinite() && minSnr > 0.0 && minDepth.isFinite() && minDepth in 0.0..1_000_000.0)
             val criteria = TessSurveyCriteria(
                 maxTmag = maxTmag,
                 minSnr = minSnr,
@@ -66,6 +67,10 @@ class TessSurveyScannerWorker @AssistedInject constructor(
                     val tic = observation.target.ticId
                     if (d.transitSnr < minSnr || d.transitDepthPpm < minDepth) return@runIndependentSurveyPage
                     val star = xilonRepository.fetchStarProperties(tic).getOrThrow()
+                    val magnitude = star.tMag ?: return@runIndependentSurveyPage
+                    if (!magnitude.isFinite() || magnitude > maxTmag) return@runIndependentSurveyPage
+                    if (!d.transitDurationHours.isFinite() || d.transitDurationHours <= 0.0 ||
+                        d.transitDurationHours >= d.bestPeriodDays * 24.0) return@runIndependentSurveyPage
                     val radius = star.radiusSun
                     if (dwarfOnly && (radius == null || !radius.isFinite() || radius <= 0.0 || radius > 1.35)) return@runIndependentSurveyPage
                     val payload = com.google.gson.JsonObject().apply {
@@ -75,6 +80,12 @@ class TessSurveyScannerWorker @AssistedInject constructor(
                         addProperty("depth_ppm", d.transitDepthPpm)
                         addProperty("snr", d.transitSnr)
                         addProperty("catalog_status", comparison)
+                        addProperty("vetting_status", when {
+                            d.vetting.isSecondaryEclipseDetected -> "SECONDARY_ECLIPSE_FLAG"
+                            !d.vetting.isOddEvenConsistent -> "ODD_EVEN_FLAG"
+                            !d.vetting.isDurationPhysical -> "DURATION_FLAG"
+                            else -> "PRELIMINARY_SCREEN_PASSED"
+                        })
                         addProperty("comparison_evidence", comparisonEvidence)
                         addProperty("sector", observation.target.sectorOrQuarter)
                         addProperty("duration_hours", d.transitDurationHours)
