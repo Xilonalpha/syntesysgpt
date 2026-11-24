@@ -11,103 +11,8 @@ import kotlin.math.*
 class RomanMicrolensingEngine @Inject constructor() {
 
     fun getBenchmarkEvents(): List<MicrolensingEvent> {
-        return listOf(
-            MicrolensingEvent(
-                eventId = "OGLE-2016-BLG-1928",
-                targetName = "OGLE-2016-BLG-1928 (Rogue Earth/Mars)",
-                raDeg = 270.458,
-                decDeg = -28.125,
-                sourceDistanceKpc = 8.2,
-                lensDistanceKpc = 4.5,
-                impactParameterU0 = 0.082,
-                einsteinCrossingTimeDays = 0.029, // ~41.5 minutes
-                peakMagnificationA0 = 12.2,
-                isFreeFloatingPlanet = true,
-                planetMassEarth = 0.55, // Sub-Earth to Mars mass
-                massRatioQ = null,
-                separationS = null,
-                lensType = "Terrestrial Rogue Planet (Free-Floating)",
-                surveyOrigin = "OGLE-IV Survey & Roman Precursor",
-                discoveryConfidencePercent = 99.4,
-                description = "Shortest timescale microlensing event ever discovered. Demonstrates free-floating planetary mass without host star."
-            ),
-            MicrolensingEvent(
-                eventId = "ROMAN-2026-BULGE-FFP1",
-                targetName = "Roman-2026-Bulge-FFP1 (Earth-mass FFP)",
-                raDeg = 268.320,
-                decDeg = -29.740,
-                sourceDistanceKpc = 8.0,
-                lensDistanceKpc = 5.2,
-                impactParameterU0 = 0.120,
-                einsteinCrossingTimeDays = 0.180, // ~4.3 hours
-                peakMagnificationA0 = 8.35,
-                isFreeFloatingPlanet = true,
-                planetMassEarth = 1.15,
-                massRatioQ = null,
-                separationS = null,
-                lensType = "Earth-Mass Rogue Planet (Free-Floating)",
-                surveyOrigin = "NASA Roman Galactic Bulge Time Domain Survey (2026 Sim)",
-                discoveryConfidencePercent = 98.7,
-                description = "High-cadence Roman WFI detection in Baade's Window. Single-lens isolated magnification peak."
-            ),
-            MicrolensingEvent(
-                eventId = "KMT-2020-BLG-0414",
-                targetName = "KMT-2020-BLG-0414Lb (Wide Earth)",
-                raDeg = 269.112,
-                decDeg = -27.890,
-                sourceDistanceKpc = 7.8,
-                lensDistanceKpc = 4.1,
-                impactParameterU0 = 0.045,
-                einsteinCrossingTimeDays = 26.5,
-                peakMagnificationA0 = 22.4,
-                isFreeFloatingPlanet = false,
-                planetMassEarth = 1.90,
-                massRatioQ = 0.000015,
-                separationS = 1.25,
-                lensType = "Earth-mass Planet at 1.5 AU (Host + Planet)",
-                surveyOrigin = "KMTNet & Roman Synergies",
-                discoveryConfidencePercent = 97.2,
-                description = "Earth-mass companion causing a secondary caustic-crossing anomaly on a stellar microlensing light curve."
-            ),
-            MicrolensingEvent(
-                eventId = "ROMAN-2026-SNOWLINE-J1",
-                targetName = "Roman-2026-Snowline-J1 (Cold Gas Giant)",
-                raDeg = 271.850,
-                decDeg = -30.150,
-                sourceDistanceKpc = 8.5,
-                lensDistanceKpc = 4.8,
-                impactParameterU0 = 0.095,
-                einsteinCrossingTimeDays = 34.0,
-                peakMagnificationA0 = 10.5,
-                isFreeFloatingPlanet = false,
-                planetMassEarth = 318.0, // 1 Jupiter mass
-                massRatioQ = 0.0012,
-                separationS = 1.42,
-                lensType = "Cold Jupiter beyond Snowline (3.2 AU)",
-                surveyOrigin = "NASA Roman Galactic Bulge Survey (2026 Sim)",
-                discoveryConfidencePercent = 99.8,
-                description = "Massive planetary caustic perturbation at t = +3.2 days demonstrating Roman sensitivity to outer systems."
-            ),
-            MicrolensingEvent(
-                eventId = "ROMAN-2026-SUB-NEPTUNE-R4",
-                targetName = "Roman-2026-Sub-Neptune-R4 (Cold Ice World)",
-                raDeg = 267.950,
-                decDeg = -28.920,
-                sourceDistanceKpc = 8.1,
-                lensDistanceKpc = 5.0,
-                impactParameterU0 = 0.150,
-                einsteinCrossingTimeDays = 18.2,
-                peakMagnificationA0 = 6.7,
-                isFreeFloatingPlanet = false,
-                planetMassEarth = 8.4,
-                massRatioQ = 0.000042,
-                separationS = 0.88,
-                lensType = "Cold Sub-Neptune at Snowline (2.1 AU)",
-                surveyOrigin = "NASA Roman Galactic Bulge Survey (2026 Sim)",
-                discoveryConfidencePercent = 96.5,
-                description = "Resonant caustic anomaly probing the planetary mass function in the cold outer zone."
-            )
-        )
+        // Legacy examples lack verified observational provenance.
+        return emptyList()
     }
 
     /**
@@ -127,6 +32,9 @@ class RomanMicrolensingEngine @Inject constructor() {
         event: MicrolensingEvent,
         steps: Int = 100
     ): List<MicrolensingCurvePoint> {
+        require(steps in 2..10000)
+        require(event.einsteinCrossingTimeDays.isFinite() && event.einsteinCrossingTimeDays > 0)
+        require(event.impactParameterU0.isFinite() && event.impactParameterU0 > 0)
         val points = mutableListOf<MicrolensingCurvePoint>()
         val span = max(0.1, event.einsteinCrossingTimeDays * 1.5)
         val dt = (2.0 * span) / steps.toDouble()
@@ -140,8 +48,8 @@ class RomanMicrolensingEngine @Inject constructor() {
             max(0.01, event.einsteinCrossingTimeDays * sqrt(event.massRatioQ))
         } else 0.05
 
-        var t = -span
-        while (t <= span) {
+        for (i in 0..steps) {
+            val t = -span + i * dt
             val u = sqrt(event.impactParameterU0.pow(2.0) + (t / max(0.001, event.einsteinCrossingTimeDays)).pow(2.0))
             val baseA = paczynskiMagnification(u)
 
@@ -167,7 +75,6 @@ class RomanMicrolensingEngine @Inject constructor() {
                     isCausticCrossing = isCaustic
                 )
             )
-            t += dt
         }
 
         return points
@@ -180,6 +87,9 @@ class RomanMicrolensingEngine @Inject constructor() {
     fun invertMicrolensingEvent(
         event: MicrolensingEvent
     ): MicrolensingInversionResult {
+        require(event.lensDistanceKpc.isFinite() && event.sourceDistanceKpc.isFinite() && event.lensDistanceKpc > 0 && event.sourceDistanceKpc > event.lensDistanceKpc)
+        require(event.einsteinCrossingTimeDays.isFinite() && event.einsteinCrossingTimeDays > 0)
+        require(event.isFreeFloatingPlanet || (event.massRatioQ?.let { it.isFinite() && it > 0 } == true))
         val dl = event.lensDistanceKpc * 1000.0 // pc
         val ds = event.sourceDistanceKpc * 1000.0 // pc
         val piRel = (1.0 / dl) - (1.0 / ds) // relative parallax (arcsec)
@@ -196,11 +106,11 @@ class RomanMicrolensingEngine @Inject constructor() {
         val kappa = 8.144 // mas / M_sun
         val massSolar = if (event.isFreeFloatingPlanet) {
             // Lens itself is the planet
-            (thetaEMas.pow(2.0)) / (kappa * (piRel * 1000.0).coerceAtLeast(0.01))
+            (thetaEMas.pow(2.0)) / (kappa * (piRel * 1000.0))
         } else {
             // Primary lens is a star, planet is q * M_*
-            val primaryMassSolar = (thetaEMas.pow(2.0)) / (kappa * (piRel * 1000.0).coerceAtLeast(0.01))
-            primaryMassSolar * (event.massRatioQ ?: 0.001)
+            val primaryMassSolar = (thetaEMas.pow(2.0)) / (kappa * (piRel * 1000.0))
+            primaryMassSolar * requireNotNull(event.massRatioQ)
         }
 
         val massEarth = massSolar * 333000.0
@@ -216,11 +126,7 @@ class RomanMicrolensingEngine @Inject constructor() {
             else "Caustică Centrală Închisă (Separare Strânsă s = ${String.format("%.2f", s)})"
         }
 
-        val summary = if (event.isFreeFloatingPlanet) {
-            "Eveniment singular fără stea gazdă detectabilă pe o rază de >10 AU. Durata scurtă de traversare (${String.format("%.1f", crossingHours)} ore) nu confirmă o planetă liberă; modelul presupune (Rogue Planet) de masă terestră (${String.format("%.2f", massEarth)} M⊕) rătăcind prin Bulbul Galactic."
-        } else {
-            "Sistem binar cu perturbație de tip caustică planetară. Inversia numerică Roman/Paczynski indică un companion planetar de ${String.format("%.2f", massEarth)} M⊕ (${String.format("%.3f", massJupiter)} M_Jup) la distanța de proiecție s = ${String.format("%.2f", event.separationS ?: 1.0)} θ_E."
-        }
+        val summary = "Conditional mass estimate assuming 6.5 mas/yr proper motion and supplied distances. Synthetic illustrative curve; no planet confirmation or binary-lens fit."
 
         val curve = generateLightCurve(event)
 
