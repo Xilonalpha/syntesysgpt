@@ -39,6 +39,9 @@ fun DeepHuntScreen(
     var independentTargets by remember { mutableStateOf("") }
     var observedSector by remember { mutableStateOf("") }
     var observedPage by remember { mutableStateOf("1") }
+    var archiveOffset by remember { mutableStateOf("0") }
+    val archiveStatus by viewModel.archiveStatus.collectAsState()
+    val archiveLoading by viewModel.archiveLoading.collectAsState()
     val monoTransits by viewModel.monoTransits.collectAsState()
     val ttvSystems by viewModel.ttvSystems.collectAsState()
     val atmosphericScores by viewModel.atmosphericScores.collectAsState()
@@ -154,6 +157,14 @@ fun DeepHuntScreen(
                         }
                         Text("Up to five targets per page; not a complete sector survey.", color = TextSecondary)
                         Text(independentStatus, color = TextSecondary)
+                        Text("Verified local experiment archive", color = AccentCyan)
+                        OutlinedTextField(value = archiveOffset, onValueChange = { archiveOffset = it },
+                            label = { Text("Archive offset") }, modifier = Modifier.fillMaxWidth())
+                        Button(onClick = { viewModel.loadExperimentArchive(archiveOffset) },
+                            enabled = !archiveLoading) {
+                            Text(if (archiveLoading) "Verifying evidence..." else "Load archive page")
+                        }
+                        Text(archiveStatus, color = TextSecondary)
                     }
                 }
                 DeepHuntTab.MONO_TRANSITS -> MonoTransitsView(
