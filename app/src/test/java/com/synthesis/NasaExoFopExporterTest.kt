@@ -185,20 +185,26 @@ class NasaExoFopExporterTest {
     @Test
     fun testDirectDetectionResultExport() = runBlocking {
         println("=== TEST 3: Direct XilonDetectionResult JSON/CSV Export ===")
-        val sampleStar = StellarTarget(
+        val sampleStar = MastStarProperties(
             ticId = "25155310",
             ra = 142.1584,
             dec = 18.2351,
             tMag = 11.2,
             radiusSun = 0.95,
             massSun = 0.92,
-            tEff = 5400.0
+            teff = 5400.0,
+            distancePc = null,
+            luminosity = null
         )
 
         val sampleDetection = XilonDetectionResult(
             star = sampleStar,
             sector = "Sector 45",
             tceName = "TCE_1",
+            totalPhotonsAnalyzed = 0,
+            derivedSemiMajorAxisAu = null,
+            lightCurveSample = emptyList(),
+            analysisLog = listOf("Synthetic unit test fixture"),
             orbitalPeriodDays = 4.23,
             transitDurationHours = 2.4,
             transitDepthPpm = 2100.0,
@@ -211,8 +217,8 @@ class NasaExoFopExporterTest {
             planetDensityGcm3 = 3.2,
             derivedEquilibriumTempK = 580.0,
             isHabitableZone = false,
-            compositionClass = CompositionClass.WATER_WORLD,
-            verdict = DetectionVerdict.STRONG_CANDIDATE,
+            compositionClass = PlanetaryCompositionClass.WATER_WORLD,
+            verdict = XilonDiscoveryVerdict.PRIMARY_EXOPLANET_CANDIDATE,
             verdictTitle = "STRONG CANDIDATE (PC)",
             verdictSummary = "Candidate transit detected with high significance",
             astrometry = AstrometryEngine.AstrometricTargetDossier(
@@ -229,9 +235,15 @@ class NasaExoFopExporterTest {
             ),
             archivalCrossMatch = ArchivalCrossMatch(
                 canonicalName = "TIC 25155310.01",
-                status = ArchivalCatalogStatus.TESS_UNVETTED_CANDIDATE,
-                toiId = null,
-                catalogSource = "TESS SpOC Pipeline"
+                status = ArchivalCatalogStatus.NASA_TOI_CANDIDATE,
+                officialDisposition = "UNRECORDED",
+                discoveryYear = null,
+                discoveryFacility = null,
+                literaturePeriodDays = null,
+                literatureDurationHours = null,
+                literatureDepthPpm = null,
+                literatureRadiusEarth = null,
+                isBenchmarkTarget = false
             )
         )
 
