@@ -559,7 +559,7 @@ class PeriodicTransitAnalysisEngine @Inject constructor(
             } else if (binaryWarning) {
                 append("Semnal periodic cu indicatori de eclipsă binară; candidat planetar neacceptat. ")
             } else if (!eventPass) {
-                append("Contrast local insuficient între evenimente: n=${eventDepths.size}, statistică=${String.format(\"%.2f\", eventSignificance)}. ")
+                append("Contrast local insuficient între evenimente: n=${eventDepths.size}, statistică=${String.format("%.2f", eventSignificance)}. ")
             } else if (!shapePass) {
                 append("Modelul de tranzit nu depășește alternativa sinusoidală sau comparația este nedeterminată.")
             } else {
