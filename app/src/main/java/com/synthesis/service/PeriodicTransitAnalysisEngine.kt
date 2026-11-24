@@ -106,6 +106,32 @@ class PeriodicTransitAnalysisEngine @Inject constructor(
         )
     }
 
+    /** Exploratory second-signal search; masked samples are not replaced with synthetic flux. */
+    fun searchAdditionalSignal(
+        points: List<PhotometricDataPoint>,
+        primary: PeriodicTransitDetectionResult,
+        minPeriodDays: Double,
+        maxPeriodDays: Double
+    ): PeriodicTransitDetectionResult? {
+        require(minPeriodDays.isFinite() && maxPeriodDays.isFinite() && minPeriodDays > 0 && maxPeriodDays > minPeriodDays)
+        val p = primary.bestPeriodDays
+        val epoch = primary.epochBjd
+        val duration = primary.transitDurationHours / 24.0
+        if (!primary.isDetected || !p.isFinite() || p <= 0 || !epoch.isFinite() ||
+            !duration.isFinite() || duration <= 0 || duration >= p / 3) return null
+        val remaining = points.filter {
+            val cycles = (it.bjdTime - epoch) / p
+            abs(cycles - round(cycles)) * p > 0.75 * duration
+        }
+        if (remaining.size < 8 || remaining.size == points.size) return null
+        val secondary = analyzeDataPoints(remaining, minPeriodDays, maxPeriodDays)
+        if (!secondary.isDetected || !secondary.bestPeriodDays.isFinite() || secondary.bestPeriodDays <= 0) return null
+        val ratio = secondary.bestPeriodDays / p
+        // Conservative harmonic rejection, not a proof of distinct planetary origin.
+        if ((1..5).any { k -> abs(ratio / k - 1) <= 0.02 || abs(ratio * k - 1) <= 0.02 }) return null
+        return secondary
+    }
+
     /**
      * Core Mathematical Box-fitting Least Squares (BLS) Execution Pipeline.
      */
