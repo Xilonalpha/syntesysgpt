@@ -38,10 +38,14 @@ class AtmosphericTsmEngine @Inject constructor(
         jMagnitude: Double,
         kMagnitude: Double? = null
     ): AtmosphericCharacterizationScore {
+        require(listOf(planetRadiusEarth, equilibriumTempK, stellarRadiusSun).all { it.isFinite() && it > 0 })
+        require(jMagnitude.isFinite() && (kMagnitude == null || kMagnitude.isFinite()))
+        require(measuredMassEarth == null || (measuredMassEarth.isFinite() && measuredMassEarth > 0))
         // 1. Resolve or estimate planetary mass (M_earth)
         val resolvedMassEarth = measuredMassEarth
             ?: exoplanetCandidateFinder.estimateMassFromRadius(planetRadiusEarth)
-            ?: 5.0
+            ?: throw IllegalArgumentException("Planetary mass unavailable")
+        require(resolvedMassEarth.isFinite() && resolvedMassEarth > 0)
 
         // 2. Kempton et al. (2018) Scale Factor C based on radius regime
         val cFactor = when {
@@ -83,20 +87,10 @@ class AtmosphericTsmEngine @Inject constructor(
         val featurePpm = (deltaFeatureMeters2 / stellarAreaMeters2) * 1_000_000.0
 
         // 7. JWST Observation Strategy Recommendation
-        val recommendation = when {
-            tsm >= 90.0 -> "★ TIER 1 GOLD TARGET: Exceptional atmospheric transmission signal. 1-2 JWST NIRSpec/NIRISS transits sufficient for >=5σ detection of H2O, CH4, or CO2."
-            tsm >= 45.0 -> "TIER 2 SILVER TARGET: High scientific priority. Atmospheric absorption detectable in 3-5 transits."
-            tsm >= 20.0 -> "TIER 3 BRONZE TARGET: Moderate priority; feasible for targeted deep survey (6-10 transits)."
-            else -> "SUB-THRESHOLD: Dense atmosphere or faint host star; requires extensive co-addition (>15 transits)."
-        }
-
-        val percentile = when {
-            tsm >= 100.0 -> 99.5
-            tsm >= 70.0 -> 95.0
-            tsm >= 40.0 -> 85.0
-            tsm >= 20.0 -> 70.0
-            else -> 40.0
-        }
+        require(tsm.isFinite() && tsm > 0)
+        val recommendation = "Exploratory TSM ranking only; molecular detection and observing time require instrument-specific simulation. Mass source: " +
+            if (measuredMassEarth == null) "radius-based estimate" else "supplied mass"
+        val percentile = Double.NaN // No reference population evaluated
 
         return AtmosphericCharacterizationScore(
             candidateName = candidateName,
