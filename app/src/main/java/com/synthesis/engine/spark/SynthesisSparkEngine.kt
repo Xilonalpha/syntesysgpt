@@ -37,12 +37,9 @@ class SynthesisSparkEngine @Inject constructor() {
         val totalStart = System.currentTimeMillis()
         val stages = mutableListOf<SparkStageInfo>()
 
-        // Ensure we have a robust dataset. If sparse, scale to full TESS sector cadence density
-        val targetPoints = if (points.size < 500) {
-            synthesizeHighDensityCadences(points, nominalPeriodDays ?: 3.84)
-        } else {
-            points
-        }
+        require(points.size >= 20 && points.all { it.phase.isFinite() && it.detrendedFlux.isFinite() }) { "Insufficient measured photometry" }
+        require(nominalPeriodDays != null && nominalPeriodDays.isFinite() && nominalPeriodDays > 0) { "Explicit reference period required for folded analysis" }
+        val targetPoints = points
 
         val totalCadences = targetPoints.size
         val partitionCount = Runtime.getRuntime().availableProcessors().coerceIn(4, 16)
@@ -115,7 +112,7 @@ class SynthesisSparkEngine @Inject constructor() {
 
         // Stage 2: Parallel Phase Normalization & Folding
         val stage2Start = System.currentTimeMillis()
-        val testPeriod = nominalPeriodDays ?: 3.8425
+        val testPeriod = requireNotNull(nominalPeriodDays)
 
         val foldedPartitions = cleanedPartitions.map { (_, chunk) ->
             async(Dispatchers.Default) {
@@ -151,22 +148,23 @@ class SynthesisSparkEngine @Inject constructor() {
         val inTransit = allFoldedPoints.filter { abs(it.phase) <= halfWidth }
         val outTransit = allFoldedPoints.filter { abs(it.phase) > halfWidth * 1.5 }
 
-        val baselineMean = if (outTransit.isNotEmpty()) outTransit.map { it.detrendedFlux }.average() else 0.0
-        val inTransitMean = if (inTransit.isNotEmpty()) inTransit.map { it.detrendedFlux }.average() else -0.001
+        require(inTransit.size >= 3 && outTransit.size >= 10) { "Insufficient transit coverage" }
+        val baselineMean = outTransit.map { it.detrendedFlux }.average()
+        val inTransitMean = inTransit.map { it.detrendedFlux }.average()
 
-        val measuredDepthPpm = ((baselineMean - inTransitMean).coerceAtLeast(0.0001) * 1_000_000.0)
+        val measuredDepthPpm = ((baselineMean - inTransitMean).coerceAtLeast(0.0) * 1_000_000.0)
         val outRms = if (outTransit.isNotEmpty()) {
             val variance = outTransit.map { (it.detrendedFlux - baselineMean).pow(2) }.average()
             sqrt(variance).coerceAtLeast(1e-6)
         } else 0.0005
 
-        val snr = ((baselineMean - inTransitMean).coerceAtLeast(0.0) / outRms) * sqrt(inTransit.size.toDouble().coerceAtLeast(10.0))
+        val snr = ((baselineMean - inTransitMean).coerceAtLeast(0.0) / outRms) * sqrt(inTransit.size.toDouble())
         val stage3Duration = (System.currentTimeMillis() - stage3Start).coerceAtLeast(1L)
 
         stages.add(
             SparkStageInfo(
                 stageNumber = 3,
-                stageName = "Distributed BLS Transit Grid Optimization",
+                stageName = "Fixed-phase box evaluation",
                 durationMs = stage3Duration,
                 description = "Evaluated box-model likelihood across in-transit vs out-of-transit partitions (SNR = ${String.format(java.util.Locale.US, "%.1f", snr)}σ)."
             )
@@ -174,15 +172,15 @@ class SynthesisSparkEngine @Inject constructor() {
 
         // Stage 4: Reduce & Candidate Synthesis
         val totalDurationMs = (System.currentTimeMillis() - totalStart).coerceAtLeast(2L)
-        val speedupFactor = (partitionCount * 0.85).coerceIn(2.5, 14.5)
-        val throughputCadencesPerSec = (totalCadences.toDouble() / (totalDurationMs / 1000.0)).coerceAtLeast(150_000.0)
+        val speedupFactor = Double.NaN // No serial benchmark performed
+        val throughputCadencesPerSec = (totalCadences.toDouble() / (totalDurationMs / 1000.0))
 
         stages.add(
             SparkStageInfo(
                 stageNumber = 4,
                 stageName = "Map-Reduce Candidate Aggregation",
                 durationMs = 1L,
-                description = "Reduced candidate telemetry across all partitions into final verified model."
+                description = "Reduced candidate telemetry across all partitions into preliminary folded signal."
             )
         )
 
@@ -199,41 +197,8 @@ class SynthesisSparkEngine @Inject constructor() {
             transitDurationHours = durationFraction * testPeriod * 24.0,
             stages = stages,
             partitions = partitionTelemetry,
-            isDistributedSuccess = true
+            isDistributedSuccess = false
         )
     }
 
-    private fun synthesizeHighDensityCadences(
-        seedPoints: List<MastPhotometryPoint>,
-        periodDays: Double
-    ): List<MastPhotometryPoint> {
-        val list = mutableListOf<MastPhotometryPoint>()
-        val baseTime = 2458300.0
-        val totalPoints = 4800
-        val durationDays = 27.4 // 1 TESS sector
-        val dt = durationDays / totalPoints
-        val transitHalfWidth = (0.02 * periodDays) / 2.0
-
-        for (i in 0 until totalPoints) {
-            val t = baseTime + i * dt
-            val phase = ((t - baseTime) / periodDays) % 1.0
-            val normPhase = if (phase > 0.5) phase - 1.0 else if (phase < -0.5) phase + 1.0 else phase
-
-            val transitDip = if (abs(normPhase * periodDays) <= transitHalfWidth) {
-                -0.0018 // ~1800 ppm dip
-            } else 0.0
-
-            val noise = (kotlin.random.Random.nextDouble() - 0.5) * 0.0004
-            val flux = transitDip + noise
-
-            list.add(
-                MastPhotometryPoint(
-                    phase = normPhase,
-                    detrendedFlux = flux,
-                    modelFlux = if (abs(normPhase * periodDays) <= transitHalfWidth) -0.0018 else 0.0
-                )
-            )
-        }
-        return list
-    }
 }
