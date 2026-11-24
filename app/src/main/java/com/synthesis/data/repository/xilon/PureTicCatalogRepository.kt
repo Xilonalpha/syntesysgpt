@@ -31,15 +31,48 @@ import java.util.Locale
 @Singleton
 class PureTicCatalogRepository @Inject constructor(
     private val pureTicDao: PureTicDao,
-    private val cachedExoplanetDao: CachedExoplanetDao
+    private val cachedExoplanetDao: CachedExoplanetDao,
+    private val researchDao: com.synthesis.data.local.dao.SynthesizedResearchDao
 ) {
 
     private val repositoryScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     // Legacy rows have no verifiable provenance. Keep them on disk but quarantine them.
-    val dynamicCatalogFlow: StateFlow<List<PureTicCandidate>> = kotlinx.coroutines.flow.MutableStateFlow(emptyList())
-    fun getPureTicCatalog(): List<PureTicCandidate> = emptyList()
-    fun getCandidateByTic(ticId: String): PureTicCandidate? = null
+    val dynamicCatalogFlow: StateFlow<List<PureTicCandidate>> = researchDao.getAllResearch()
+        .map { rows -> rows.mapNotNull { row ->
+            if (!row.id.startsWith("independent-tess:") || row.isVerified || row.sourceCount <= 0) null
+            else try {
+                val j = com.google.gson.JsonParser.parseString(row.synthesizedDataJson).asJsonObject
+                fun number(key: String): Double = j.get(key)?.asDouble?.takeIf { it.isFinite() && it > 0.0 }
+                    ?: throw IllegalArgumentException("Missing positive measurement: $key")
+                fun string(key: String): String = j.get(key)?.asString?.takeIf { it.isNotBlank() }
+                    ?: throw IllegalArgumentException("Missing metadata: $key")
+                val tic = string("tic")
+                val experiment = string("experiment_id")
+                require(tic.matches(Regex("[0-9]+")) && row.id == "independent-tess:$experiment")
+                require(string("catalog_status") == "NO_PERIOD_MATCH_IN_QUERIED_TABLES; NOVELTY_UNVERIFIED")
+                val evidence = string("comparison_evidence")
+                val depth = number("depth_ppm")
+                require(depth < 1_000_000.0)
+                PureTicCandidate(
+                    ticId = tic, name = "TIC $tic", sector = string("sector"),
+                    apparentMag = j.get("tmag").asDouble.also { require(it.isFinite()) },
+                    estimatedPeriodDays = number("period_days"),
+                    transitDurationHours = number("duration_hours"), transitDepthPpm = depth,
+                    stellarTeffK = number("stellar_teff"), stellarRadiusSun = number("stellar_radius"),
+                    stellarMassSun = number("stellar_mass"), distancePc = number("distance_pc"),
+                    discoveryOrigin = "Analiza fotometrica TESS independenta",
+                    whyNoToi = "Fara potrivire de perioada in tabelele interogate; noutate neconfirmata",
+                    potentialPlanetaryType = "Semnal de tranzit nevalidat",
+                    scientificNotes = "Experiment: $experiment; comparatie: $evidence",
+                    isLiveIngested = true, ingestionTimestamp = row.timestamp, snrSigma = number("snr")
+                )
+            } catch (_: Exception) { null }
+        }.distinctBy { it.ticId } }
+        .stateIn(repositoryScope, SharingStarted.Eagerly, emptyList())
+    fun getPureTicCatalog(): List<PureTicCandidate> = dynamicCatalogFlow.value
+    fun getCandidateByTic(ticId: String): PureTicCandidate? =
+        dynamicCatalogFlow.value.firstOrNull { it.ticId == ticId }
 
     fun toTargetStarCandidate(c: PureTicCandidate): TargetStarCandidate {
         return TargetStarCandidate(
@@ -85,7 +118,7 @@ class PureTicCatalogRepository @Inject constructor(
             discoveryYear = null,
             scoreReasoning = listOf(
                 "[TIC • STATUT CATALOG NEVERIFICAT] ${c.discoveryOrigin}",
-                "Notă istorică neverificată: ${c.whyNoToi}",
+                "Statut comparație: ${c.whyNoToi}",
                 c.scientificNotes,
                 c.scientificPriority
             )
