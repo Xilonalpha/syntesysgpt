@@ -41,6 +41,7 @@ class XilonRepository @Inject constructor(
         val raDeg = result.star.ra ?: result.astrometry?.raDeg
         val decDeg = result.star.dec ?: result.astrometry?.decDeg
         val claimed = result.sector.ifBlank { "Sector necunoscut" }
+        if (raDeg == null || decDeg == null || !raDeg.isFinite() || !decDeg.isFinite() || raDeg !in 0.0..<360.0 || decDeg !in -90.0..90.0) return "$claimed (unverified)"
         val audit = tessHeasarcValidationEngine.auditTessPointing(
             ticId = result.star.ticId,
             raDeg = raDeg,
