@@ -51,6 +51,7 @@ class PureTicCatalogRepository @Inject constructor(
                 val experiment = string("experiment_id")
                 require(tic.matches(Regex("[0-9]+")) && row.id == "independent-tess:$experiment")
                 require(string("catalog_status") == "NO_PERIOD_MATCH_IN_QUERIED_TABLES; NOVELTY_UNVERIFIED")
+                require(string("vetting_status") == "PRELIMINARY_SCREEN_PASSED")
                 val evidence = string("comparison_evidence")
                 val depth = number("depth_ppm")
                 require(depth < 1_000_000.0)
@@ -64,7 +65,7 @@ class PureTicCatalogRepository @Inject constructor(
                     discoveryOrigin = "Analiza fotometrica TESS independenta",
                     whyNoToi = "Fara potrivire de perioada in tabelele interogate; noutate neconfirmata",
                     potentialPlanetaryType = "Semnal de tranzit nevalidat",
-                    scientificNotes = "Experiment: $experiment; comparatie: $evidence",
+                    scientificNotes = "Experiment: $experiment; comparatie: $evidence; filtrare preliminara trecuta, validare independenta necesara",
                     isLiveIngested = true, ingestionTimestamp = row.timestamp, snrSigma = number("snr")
                 )
             } catch (_: Exception) { null }
