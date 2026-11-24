@@ -23,12 +23,12 @@ data class PureTicCandidate(
     val whyNoToi: String,
     val potentialPlanetaryType: String,
     val isInHabitableZone: Boolean = false,
-    val scientificPriority: String = "PRIORITATE MAXIMĂ • TEREN VIRGIN",
+    val scientificPriority: String = "PRIORITATE NEVALIDATĂ",
     val scientificNotes: String,
     val isLiveIngested: Boolean = false,
     val ingestionTimestamp: Long = System.currentTimeMillis(),
-    val snrSigma: Double = 9.8,
-    val profileSymmetryDeltaSigma: Double = 1.2
+    val snrSigma: Double = Double.NaN,
+    val profileSymmetryDeltaSigma: Double = Double.NaN
 )
 
 enum class TicSortOption(val label: String) {
