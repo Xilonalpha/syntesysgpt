@@ -45,11 +45,11 @@ class PureTicCatalogRepository @Inject constructor(
         return TargetStarCandidate(
             ticId = c.ticId,
             name = c.name,
-            description = "[TIC PUR • FĂRĂ TOI] ${c.discoveryOrigin}. ${c.whyNoToi}",
+            description = "[TIC • STATUT CATALOG NEVERIFICAT] ${c.discoveryOrigin}. ${c.whyNoToi}",
             sector = c.sector,
             tce = "",
             estimatedMag = c.apparentMag,
-            targetType = "Pure TIC Candidate (Fără TOI)",
+            targetType = "TIC candidate (catalog status unverified)",
             knownClassification = "Statut catalog nevalidat",
             advisoryPriority = c.scientificPriority,
             scientificReason = "${c.potentialPlanetaryType} | Adâncime: ${c.transitDepthPpm.toInt()} ppm, P: ${c.estimatedPeriodDays?.let { "${String.format(Locale.US, "%.2f", it)} d" } ?: "n/a"}, SNR: ${String.format(Locale.US, "%.1f", c.snrSigma)}σ"
@@ -84,8 +84,8 @@ class PureTicCatalogRepository @Inject constructor(
             discoveryMethod = null,
             discoveryYear = null,
             scoreReasoning = listOf(
-                "[TIC PUR • FĂRĂ TOI] ${c.discoveryOrigin}",
-                "Motiv lipsă TOI: ${c.whyNoToi}",
+                "[TIC • STATUT CATALOG NEVERIFICAT] ${c.discoveryOrigin}",
+                "Notă istorică neverificată: ${c.whyNoToi}",
                 c.scientificNotes,
                 c.scientificPriority
             )
