@@ -71,6 +71,34 @@ class DeepHuntViewModel @Inject constructor(
     private val _archiveLoading = MutableStateFlow(false)
     val archiveLoading = _archiveLoading.asStateFlow()
 
+    fun loadArchivedMetrics(experimentId: String, runId: String) {
+        if (_archiveLoading.value) return
+        _archiveLoading.value = true
+        viewModelScope.launch {
+            try {
+                val id = experimentId.trim()
+                val run = runId.trim()
+                _archiveStatus.value = if (run.isEmpty()) {
+                    val history = mastSynchronization.archivedRunHistory(id)
+                    "Experiment: $id\nVerified runs:\n" + history.runs.joinToString("\n") +
+                        "\nRejected archive files: ${history.rejected.size}"
+                } else {
+                    val metrics = mastSynchronization.readArchivedMetrics(id, run)
+                    val labels = listOf("Period (days)", "Epoch (BJD)", "Depth (ppm)", "Duration (hours)", "SNR", "SDE")
+                    "Experiment: $id\nRun: $run\nAccepted signal: ${metrics.detected}\n" +
+                        labels.zip(metrics.values).joinToString("\n") { (label, value) -> "$label: ${value ?: "NA"}" } +
+                        "\nPlanet confirmation and novelty not established."
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _archiveStatus.value = "Archive unavailable: ${e.message}"
+            } finally {
+                _archiveLoading.value = false
+            }
+        }
+    }
+
     fun loadExperimentArchive(offsetInput: String) {
         if (_archiveLoading.value) return
         val offset = offsetInput.trim().toIntOrNull()
