@@ -296,7 +296,11 @@ class InvestigationViewModel @Inject constructor(
             _logs.value = _logs.value + "Impact IP: not assessed (no validated methodology)."
 
             // Discovery Engine
-            _logs.value = _logs.value + "Cross-domain discovery assessment unavailable pending validation."
+            val researchCandidates = discoveryEngine.generateResearchCandidates(investigationId, allObservations)
+            _logs.value = _logs.value + "Exploratory cross-domain candidates: ${researchCandidates.size}; not confirmed discoveries."
+            researchCandidates.take(20).forEach { candidate ->
+                _logs.value = _logs.value + "Candidate ${candidate.candidateId}: ${candidate.pattern.patternType.name}; observations=${candidate.observationIds.size}; checks=${candidate.requiredChecks.joinToString("; ")}"
+            }
             val generatedDiscoveries = discoveryEngine.generateDiscoveries(investigationId, allObservations)
             if (generatedDiscoveries.isNotEmpty()) {
                 repository.saveDiscoveries(generatedDiscoveries)
@@ -326,7 +330,7 @@ class InvestigationViewModel @Inject constructor(
         observations.forEachIndexed { index, obs ->
             nodes.add(
                 EvidenceNode(
-                    id = "node_obs_$index",
+                    id = "${investigationId}_node_obs_$index",
                     investigationId = investigationId,
                     label = obs.entity.take(20),
                     type = when (obs.observationType) {
@@ -338,7 +342,7 @@ class InvestigationViewModel @Inject constructor(
                         ObservationType.HISTORICAL -> NodeType.PAPER
                     },
                     source = obs.sourceName,
-                    relationship = RelationshipType.CONFIRMED,
+                    relationship = RelationshipType.UNVERIFIED,
                     description = obs.normalizedData,
                     timestamp = obs.timestamp,
                     x = (100 + index * 80).toFloat(),
@@ -349,7 +353,7 @@ class InvestigationViewModel @Inject constructor(
         correlations.forEachIndexed { index, corr ->
             nodes.add(
                 EvidenceNode(
-                    id = "node_corr_$index",
+                    id = "${investigationId}_node_corr_$index",
                     investigationId = investigationId,
                     label = "CORR ${(corr.strength * 100).toInt()}%",
                     type = NodeType.DATABASE,
@@ -365,7 +369,7 @@ class InvestigationViewModel @Inject constructor(
         hypotheses.forEachIndexed { index, hyp ->
             nodes.add(
                 EvidenceNode(
-                    id = "node_hyp_$index",
+                    id = "${investigationId}_node_hyp_$index",
                     investigationId = investigationId,
                     label = hyp.title.take(15),
                     type = NodeType.HYPOTHESIS,
