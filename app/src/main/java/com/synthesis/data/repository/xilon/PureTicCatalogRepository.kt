@@ -59,6 +59,17 @@ class PureTicCatalogRepository @Inject constructor(
                 val depth = number("depth_ppm")
                 require(depth < 1_000_000.0)
                 val snr = number("snr")
+                val noise = j.get("residual_noise")?.takeIf { it.isJsonObject }?.asJsonObject
+                fun optionalFinite(key: String): Double? = runCatching {
+                    noise?.get(key)?.asDouble?.takeIf { it.isFinite() }
+                }.getOrNull()
+                val beta = optionalFinite("blockNoiseRatio")?.takeIf { it >= 0 }
+                val rho = optionalFinite("lagOneCorrelation")?.takeIf { it in -1.0..1.0 }
+                val adjusted = beta?.let { snr / maxOf(1.0, it) }
+                val noiseNote = if (adjusted != null && rho != null)
+                    String.format(Locale.US, "; SNR ajustat %.2f; beta %.2f; rho1 %.3f; diagnostic necalibrat", adjusted, beta, rho)
+                else "; diagnostic zgomot indisponibil"
+
                 PureTicCandidate(
                     ticId = tic, name = "TIC $tic", sector = string("sector"),
                     apparentMag = j.get("tmag").asDouble.also { require(it.isFinite()) },
@@ -69,7 +80,7 @@ class PureTicCatalogRepository @Inject constructor(
                     discoveryOrigin = if (additional == null) "Analiza fotometrica TESS independenta" else "Cautare BLS suplimentara pe aceleasi observatii",
                     whyNoToi = "Fara potrivire de perioada in tabelele interogate; noutate neconfirmata",
                     potentialPlanetaryType = "Semnal de tranzit nevalidat",
-                    scientificNotes = "Experiment: $experiment; comparatie: $evidence; filtrare preliminara trecuta, validare independenta necesara",
+                    scientificNotes = "Experiment: $experiment; comparatie: $evidence; filtrare preliminara trecuta, validare independenta necesara" + noiseNote,
                     scientificPriority = "TRIAJ OBSERVATIONAL • SNR ${String.format(Locale.US, "%.1f", snr)} (necalibrat)",
                     isLiveIngested = true, ingestionTimestamp = row.timestamp, snrSigma = snr
                 )
