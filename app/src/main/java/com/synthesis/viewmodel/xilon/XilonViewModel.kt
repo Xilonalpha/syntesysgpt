@@ -349,6 +349,8 @@ class XilonViewModel @Inject constructor(
                     try {
                         val audit = mastSynchronization.followUpArchivedTiming(
                             requireNotNull(result.experimentId), bls.bestPeriodDays)
+                        val reportHash = mastSynchronization.persistTimingReport(audit)
+                        _independentStatus.value += " | Report SHA-256: $reportHash"
                         _independentStatus.value += " | Follow-up: ${audit.matchingChecks}/${audit.checks.size} compatible; ${audit.status}"
                         val check = mastSynchronization.validateArchivedSectors(
                             requireNotNull(result.experimentId), sectors.first(), sectors.last())
