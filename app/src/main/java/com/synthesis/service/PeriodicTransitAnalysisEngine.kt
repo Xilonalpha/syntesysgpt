@@ -122,8 +122,13 @@ class PeriodicTransitAnalysisEngine @Inject constructor(
         periodSteps: Int = 600,
         allowStellarRetry: Boolean = true,
         allowPeakRetry: Boolean = true,
-        globalPowerReference: Pair<Double, Double>? = null
+        globalPowerReference: Pair<Double, Double>? = null,
+        constrainDuration: Boolean = false
     ): PeriodicTransitDetectionResult {
+        if (constrainDuration && (!hostStarRadiusSolar.isFinite() || hostStarRadiusSolar <= 0 ||
+            !hostStarMassSolar.isFinite() || hostStarMassSolar <= 0)) {
+            return fallbackNoDetection("Căutarea constrânsă necesită masă și rază stelară valide")
+        }
         val n = times.size
         if (n < 8 || fluxes.size != n || errors.size != n || times.any { !it.isFinite() } || fluxes.any { !it.isFinite() } || errors.any { !it.isFinite() || it <= 0.0 } || times.distinct().size != n || nPhaseBins < 6 || periodSteps < 20) {
             return fallbackNoDetection("Număr insuficient de puncte fotometrice ($n).")
@@ -232,9 +237,14 @@ class PeriodicTransitAnalysisEngine @Inject constructor(
                 prefixS[b + 1] = prefixS[b] + binS[b % nPhaseBins]
                 prefixR[b + 1] = prefixR[b] + binR[b % nPhaseBins]
             }
+            // Exploratory envelope: radius ratio <= 0.4, duration <= twice central circular duration.
+            val orbitRadius = (G * hostStarMassSolar * M_SUN * (period * SECONDS_PER_DAY).pow(2) / (4 * PI * PI)).pow(1.0 / 3.0)
+            val chord = 1.4 * hostStarRadiusSolar * R_SUN / orbitRadius
+            val maxDuty = if (constrainDuration && chord in 0.0..1.0) 2.0 * asin(chord) / PI else 1.0
             for (q in trialQList) {
                 val windowBins = (q * nPhaseBins).roundToInt().coerceIn(1, nPhaseBins / 3)
 
+                if (windowBins.toDouble() / nPhaseBins > maxDuty) continue
                 for (startBin in 0 until nPhaseBins) {
                     val endBin = startBin + windowBins
                     val sSum = prefixS[endBin] - prefixS[startBin]
@@ -464,7 +474,7 @@ class PeriodicTransitAnalysisEngine @Inject constructor(
                 if (hi <= lo) continue
                 val candidate = runBlsPipeline(times, fluxes, errors, lo, hi,
                     hostStarRadiusSolar, hostStarMassSolar, hostStarTeffK,
-                    nPhaseBins, 20, false, false, meanPower to stdPower)
+                    nPhaseBins, 20, false, false, meanPower to stdPower, constrainDuration)
                 if (candidate.isDetected) {
                     return candidate.copy(periodogram = periodogram,
                         statusSummary = "Maxim BLS alternativ sau armonic; SDE raportat la grila globală = " +
@@ -514,7 +524,7 @@ class PeriodicTransitAnalysisEngine @Inject constructor(
             trend?.let { fit ->
                 val corrected = ySorted.indices.map { ySorted[it]-fit[it] }
                 val retry = runBlsPipeline(tSorted, corrected, errSorted, minPeriodDays, maxPeriodDays,
-                    hostStarRadiusSolar, hostStarMassSolar, hostStarTeffK, nPhaseBins, periodSteps, false)
+                    hostStarRadiusSolar, hostStarMassSolar, hostStarTeffK, nPhaseBins, periodSteps, false, constrainDuration = constrainDuration)
                 if (retry.isDetected) return retry.copy(statusSummary = "Semnal preliminar după eliminarea unei sinusoide; necesită verificare pe date originale. " + retry.statusSummary)
             }
         }
@@ -545,6 +555,7 @@ class PeriodicTransitAnalysisEngine @Inject constructor(
         )
 
         val status = buildString {
+            if (constrainDuration) append("Căutare experimentală cu durate constrânse; FAP necalibrată. ")
             if (!durationRatio.isFinite()) append("Geometrie circulară neevaluată: parametri stelari lipsă sau incompatibili. ")
             else if (!isDurationPhysical) append("Durată peste limita modelului circular central; necesită verificarea excentricității, diluției și parametrilor stelari. ")
 
