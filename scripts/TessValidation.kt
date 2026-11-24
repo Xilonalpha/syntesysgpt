@@ -11,6 +11,13 @@ fun main(args: Array<String>) {
  require(rows.size>=8 && rows.zipWithNext().all { (a,b)->b[0]>a[0] })
  val r=PeriodicTransitAnalysisEngine(BayesianUncertaintyEngine()).runBlsPipeline(rows.map{it[0]},rows.map{it[1]},rows.map{it[2]},0.5,10.0)
  println("points=${rows.size} detected=${r.isDetected} period=${r.bestPeriodDays} expected=$expected status=${r.statusSummary}")
- if(control) check(!r.isDetected) { "Control produced a detection; review required" }
- else check(r.isDetected && abs(r.bestPeriodDays/requireNotNull(expected)-1)<0.02) { "Period recovery failed" }
+ println("search_min_days=0.5 search_max_days=10.0 tolerance_fraction=0.02")
+ println("depth_ppm=${r.transitDepthPpm} duration_hours=${r.transitDurationHours} snr=${r.transitSnr} epoch_bjd=${r.epochBjd}")
+ val validPeriod=r.bestPeriodDays.isFinite() && r.bestPeriodDays>0
+ val error=if(expected!=null && validPeriod) abs(r.bestPeriodDays/expected-1) else null
+ println("relative_period_error=$error")
+ val passed=if(control) !r.isDetected else r.isDetected && error!=null && error<0.02
+ println("benchmark_status=${if(passed) "PASS" else "FAIL"}")
+ println("planet_confirmation=NOT_ASSESSED global_false_alarm_probability=NOT_CALIBRATED")
+ check(passed) { if(control) "Control produced a detection; review required" else "Period recovery failed" }
 }
