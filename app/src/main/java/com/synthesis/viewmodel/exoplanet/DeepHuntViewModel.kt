@@ -189,7 +189,23 @@ class DeepHuntViewModel @Inject constructor(
                                 val comparisonId = mastSynchronization.archiveCatalogComparison(
                                     requireNotNull(result.experimentId), b.bestPeriodDays, status)
                                 "$status; comparison=$comparisonId"
-                            } else "novelty not assessed")
+                            } else "novelty not assessed") + if (b.isDetected && result.products.map { it.sector }.distinct().size >= 2) {
+                                val sectors = result.products.map { it.sector }.distinct().sorted()
+                                try {
+                                    val check = mastSynchronization.validateArchivedSectors(
+                                        requireNotNull(result.experimentId), sectors.first(), sectors.last())
+                                    val samePeriod = kotlin.math.abs(check.ephemeris.periodDays - b.bestPeriodDays) /
+                                        b.bestPeriodDays <= 0.01
+                                    "; sectors ${check.trainingSector}/${check.heldOutSector}: " +
+                                        (if (check.allCompatible && samePeriod) "conditional timing compatibility"
+                                        else "compatibility not established") +
+                                        "; ${check.comparisons.size} measured events; not confirmation"
+                                } catch (e: kotlinx.coroutines.CancellationException) {
+                                    throw e
+                                } catch (e: Exception) {
+                                    "; multisector assessment incomplete: ${e.message ?: "insufficient evidence"}"
+                                }
+                            } else "; multisector assessment unavailable"
                         val span = (result.dataPoints.maxOfOrNull { it.bjdTime } ?: 0.0) -
                             (result.dataPoints.minOfOrNull { it.bjdTime } ?: 0.0)
                         val upper = minOf(30.0, span / 2.0)
@@ -212,7 +228,7 @@ class DeepHuntViewModel @Inject constructor(
                                     extra.blockAdjustedSnr?.let { addProperty("adjusted_snr", it) }
                                     addProperty("noise_calibration_status", "EXPLORATORY_UNCALIBRATED")
                                     addProperty("epoch_bjd", extra.epochBjd)
-                                    addProperty("phase_validation", "NOT_ASSESSED_NO_TIMING_UNCERTAINTY")
+                                    addProperty("phase_validation", "NOT_ASSESSED_ADDITIONAL_SIGNAL")
                                     add("product_provenance", com.google.gson.Gson().toJsonTree(result.products))
                                     addProperty("sector", result.target.sectorOrQuarter)
                                     addProperty("catalog_status", catalog)
