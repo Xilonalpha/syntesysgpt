@@ -3,13 +3,12 @@ import argparse, hashlib, json
 from pathlib import Path
 import numpy as np
 from astropy.io import fits
+from fits_integrity import verify_original
 p=argparse.ArgumentParser(); p.add_argument('fits'); p.add_argument('csv'); p.add_argument('--tic',type=int,required=True); a=p.parse_args()
 src=Path(a.fits); dst=Path(a.csv)
-with fits.open(src, checksum=True) as h:
+with fits.open(src, checksum=False) as h:
+    verify_original(src, h)
     if int(h[0].header['TICID']) != a.tic: raise ValueError('TIC mismatch')
-    for unit in h:
-        if 'CHECKSUM' in unit.header and unit.verify_checksum() != 1: raise ValueError('Invalid FITS checksum')
-        if 'DATASUM' in unit.header and unit.verify_datasum() != 1: raise ValueError('Invalid FITS datasum')
     hdr=h[1].header; d=h[1].data
     if hdr.get('TIMESYS')!='TDB': raise ValueError('Expected TDB')
     t=np.asarray(d['TIME'],float)+float(hdr['BJDREFI'])+float(hdr['BJDREFF'])
