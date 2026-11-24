@@ -296,11 +296,7 @@ class InvestigationViewModel @Inject constructor(
             _logs.value = _logs.value + "Impact IP: not assessed (no validated methodology)."
 
             // Discovery Engine
-            val researchCandidates = discoveryEngine.generateResearchCandidates(investigationId, allObservations)
-            _logs.value = _logs.value + "Exploratory cross-domain candidates: ${researchCandidates.size}; not confirmed discoveries."
-            researchCandidates.take(20).forEach { candidate ->
-                _logs.value = _logs.value + "Candidate ${candidate.candidateId}: ${candidate.pattern.patternType.name}; observations=${candidate.observationIds.size}; checks=${candidate.requiredChecks.joinToString("; ")}"
-            }
+            _logs.value = _logs.value + "Exploratory candidate assessment disabled: raw observation provenance must be verified first."
             val generatedDiscoveries = discoveryEngine.generateDiscoveries(investigationId, allObservations)
             if (generatedDiscoveries.isNotEmpty()) {
                 repository.saveDiscoveries(generatedDiscoveries)
