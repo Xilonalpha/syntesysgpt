@@ -1,0 +1,15 @@
+test_consistency (test_tess_manifest.ManifestTest.test_consistency) ... ok
+test_count (test_tess_manifest.ManifestTest.test_count) ... ok
+test_csv_changed (test_tess_manifest.ManifestTest.test_csv_changed) ... ok
+test_fits_changed (test_tess_manifest.ManifestTest.test_fits_changed) ... ok
+test_invalid_error (test_tess_manifest.ManifestTest.test_invalid_error) ... ok
+test_tic (test_tess_manifest.ManifestTest.test_tic) ... ok
+test_changed_csv (test_tess_replay.ReplayTest.test_changed_csv) ... ok
+test_changed_normalization (test_tess_replay.ReplayTest.test_changed_normalization) ... ok
+test_changed_sector (test_tess_replay.ReplayTest.test_changed_sector) ... ok
+test_match (test_tess_replay.ReplayTest.test_match) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 0.007s
+
+OK

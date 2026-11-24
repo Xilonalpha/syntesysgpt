@@ -1,0 +1,2 @@
+# Patch 44
+Adds TransitGeometryFit: bounded 100-evaluation grid refinement of epoch and impact, with radius and baseline fitted at each geometry. Period, scaled semimajor axis and limb darkening remain fixed. Maximum 2000 input points. Conditional radius intervals are intentionally omitted during geometry search; joint uncertainties are not implemented. No global optimum guarantee, no Android integration or performance benchmark, no real TESS validation. Synthetic self-model tests only. See scripts/transit_geometry_patch44.log and scripts/physical_fit_regression_patch44.log.

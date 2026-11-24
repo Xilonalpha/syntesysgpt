@@ -1,0 +1,16 @@
+app/src/main/java/com/synthesis/service/PeriodicTransitAnalysisEngine.kt:403:21: warning: name shadowed: cm
+                var cm = 0.0; var zm = 0.0
+                    ^
+app/src/main/java/com/synthesis/service/PeriodicTransitAnalysisEngine.kt:410:21: warning: name shadowed: cc
+                var cc = 0.0; var zz = 0.0; var cz = 0.0; var cy = 0.0; var zy = 0.0
+                    ^
+app/src/main/java/com/synthesis/service/PeriodicTransitAnalysisEngine.kt:410:63: warning: name shadowed: cy
+                var cc = 0.0; var zz = 0.0; var cz = 0.0; var cy = 0.0; var zy = 0.0
+                                                              ^
+app/src/main/java/com/synthesis/service/PeriodicTransitAnalysisEngine.kt:438:13: warning: variable 'depthConsistencyNormalized' is never used
+        val depthConsistencyNormalized = (if (oddEvenDiffSigma <= 1.0) {
+            ^
+points=600 detected=false period=5.900896463333554 expected=null status=Modelul de tranzit nu dep??e?te alternativa sinusoidal? sau compara?ia este nedeterminat?.
+Exception in thread "main" java.lang.IllegalArgumentException: Failed requirement.
+	at TessValidationKt.main(TessValidation.kt:8)
+Out of range reference rejected

@@ -1,0 +1,6 @@
+PASS epoch
+PASS impact
+PASS radius
+PASS bounded evaluations
+PASS no conditional interval
+PASS invalid bounds

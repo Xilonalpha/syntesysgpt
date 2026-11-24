@@ -1,0 +1,5 @@
+# Scientific Integrity Patch 24
+
+Adds ExperimentResultStore and integrates scalar result persistence into initial MAST analysis and offline replay. Each run has a UUID and is bound to a verified manifest (SHA-256 of its current parsed representation). Result records have a SHA-256 checksum. Nonfinite scalar values are represented as NA. Exact comparison reports differing fields; it is not a statistical equivalence test. The stored scalars are period, epoch, depth, duration, SNR and SDE plus detection flag. Run IDs are not yet exposed in the Android UI. No full report, history UI, result quota or authenticated signature is implemented.
+
+Standalone Kotlin compilation with PeriodicTransitModels.kt and BayesianUncertaintyMetrics.kt plus the three store classes and scripts/ExperimentResultCheck.kt succeeded; all five checks passed (round trip, identical runs, changed metrics, wrong experiment, tampering). Tests use controlled data, not real FITS. Android build and live API tests were not run.

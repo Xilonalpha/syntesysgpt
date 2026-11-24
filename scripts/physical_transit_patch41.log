@@ -1,0 +1,11 @@
+PASS outside
+PASS zero radius
+PASS uniform central
+PASS uniform interior
+PASS total occultation
+PASS limb darkening
+PASS partial contact
+PASS convergence
+PASS invalid input
+PASS invalid limb coefficients
+10/10 checks passed

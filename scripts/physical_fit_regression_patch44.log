@@ -1,0 +1,13 @@
+scripts/PhysicalTransitFitCheck.kt:16:66: warning: unnecessary non-null assertion (!!) on a non-null receiver of type Double
+    check(noisy.upper68!!-noisy.lower68!! > r.upper68!!-r.lower68!!); println("PASS uncertainty scaling")
+                                                                 ^
+PASS radius
+PASS baseline
+PASS improvement
+PASS interval
+PASS uncertainty scaling
+PASS censored interval
+PASS interior
+PASS flat
+PASS invalid sigma
+PASS missing baseline

@@ -1,0 +1,2 @@
+# Patch 39
+Journal append validation now streams LF-delimited records and retains only the last validated record instead of materializing the full journal. Full verification and recovery still return all rows. Writes are serialized across instances in the same JVM. Existing journal format is unchanged. Full chain verification on each append remains O(n); no performance benchmark or Android build was performed. External process concurrency is not covered. Existing 13 JVM checks passed.

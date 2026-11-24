@@ -1,0 +1,2 @@
+# Patch 23
+Offline replay service entry point replayExperiment(id) verifies schema-2 manifest and FITS hashes, decodes each product, checks mission, TIC, sector and point count, enforces 250000 total points and merges through the original pipeline before BLS. New manifests use BLS-patch16-replay1; older labels are rejected rather than silently reinterpreted. Six standalone JVM checks passed using a simulated decoder (not real FITS). No Android build, real FITS replay or numeric BLS validation performed. No UI entry point or persisted result comparison yet.

@@ -1,0 +1,2 @@
+# Scientific Integrity Patch 25
+Adds verified per-experiment run listing and reporting of corrupt result files. Results are sorted by UUID, not chronology. Adds a configurable 16 MiB default result directory quota; existing records are not deleted. Save synchronization is per store instance, not cross-process. History scans result files and verifies the manifest and matching records. Android UI, BLS numerical validation and Android compilation remain pending. Standalone Kotlin compilation and all eight checks in scripts/ExperimentResultCheck.kt passed using controlled data.

@@ -1,0 +1,25 @@
+app/src/main/java/com/synthesis/service/PeriodicTransitAnalysisEngine.kt:391:13: warning: variable 'depthConsistencyNormalized' is never used
+        val depthConsistencyNormalized = (if (oddEvenDiffSigma <= 1.0) {
+            ^
+injected=1.5 detected=true recovered=1.499531396438613 depth=8026.347821956546 duration=2.51921274601687 SDE=14.015605029050821
+injected=2.4 detected=true recovered=2.39880059970015 depth=8007.805793794659 duration=4.029985007496252 SDE=12.171418901694146
+injected=3.2 detected=true recovered=3.2 depth=8016.077800125907 duration=6.144 SDE=12.51819500040423
+noise seed=1 detected=false
+noise seed=2 detected=false
+noise seed=3 detected=false
+noise seed=4 detected=false
+noise seed=5 detected=false
+gap correlated default grid: detected=true period=2.4024024024024024 depth=2732.1943752082652 duration=4.612612612612613
+weak injection ppm=500.0 detected=true period=2.4024024024024024 depth=514.0156868435776 SDE=11.574211661752383
+weak injection ppm=1000.0 detected=true period=2.39880059970015 depth=1036.7504066848514 SDE=11.907045330766726
+weak injection ppm=2000.0 detected=true period=2.39880059970015 depth=2032.6154619860772 SDE=12.066429559042254
+stellar sinusoid period=1.5 detected=false recovered=1.5009380863039399 SDE=5.337488428680404
+stellar sinusoid period=2.4 detected=false recovered=2.3952095808383236 SDE=6.26860710939901
+stellar sinusoid period=3.2 detected=false recovered=3.2 SDE=6.33641006693767
+16 regression datasets passed
+mixed amplitude=2.0E-4 detected=true period=2.4024024024024024 correct=true
+mixed amplitude=5.0E-4 detected=false period=3.2 correct=false
+mixed amplitude=0.001 detected=false period=3.2 correct=false
+mixed amplitude=0.002 detected=false period=3.2 correct=false
+binary secondary ratio=0.5 detected=false period=0.0
+binary secondary ratio=1.0 detected=false period=0.0

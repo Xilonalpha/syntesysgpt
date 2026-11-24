@@ -1,0 +1,2 @@
+# Patch 28
+Removed hardcoded WASP-12 b photometry without source provenance and default session metadata. New imports reset previous session metadata. Vision SNR threshold no longer rewrites imported flux, uncertainties or SNR in the ViewModel. Guarded two UI integer conversions against NaN. Local imports are labelled unverified and BLS signals preliminary. Four standalone session assertions passed. Android build and UI integration not tested; weak-transit BLS tests deferred. Vision service itself requires further audit.

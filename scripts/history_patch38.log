@@ -1,0 +1,16 @@
+app/src/main/java/com/synthesis/service/PeriodicTransitAnalysisEngine.kt:402:21: warning: name shadowed: cm
+                var cm = 0.0; var zm = 0.0
+                    ^
+app/src/main/java/com/synthesis/service/PeriodicTransitAnalysisEngine.kt:409:21: warning: name shadowed: cc
+                var cc = 0.0; var zz = 0.0; var cz = 0.0; var cy = 0.0; var zy = 0.0
+                    ^
+app/src/main/java/com/synthesis/service/PeriodicTransitAnalysisEngine.kt:409:63: warning: name shadowed: cy
+                var cc = 0.0; var zz = 0.0; var cz = 0.0; var cy = 0.0; var zy = 0.0
+                                                              ^
+app/src/main/java/com/synthesis/service/PeriodicTransitAnalysisEngine.kt:437:13: warning: variable 'depthConsistencyNormalized' is never used
+        val depthConsistencyNormalized = (if (oddEvenDiffSigma <= 1.0) {
+            ^
+app/src/main/java/com/synthesis/service/TelescopeVisionPhotometryEngine.kt:126:9: warning: parameter 'bgSigma' is never used
+        bgSigma: Float,
+        ^
+13 checks passed

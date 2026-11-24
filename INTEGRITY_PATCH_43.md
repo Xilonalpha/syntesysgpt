@@ -1,0 +1,2 @@
+# Patch 43
+Adds conditional nominal 68% radius-ratio profile chi-square intervals (delta chi-square = 1), refitting the baseline at every trial. Null bounds indicate no crossing within the searched domain. The first sampled crossing is refined by bisection; narrow disconnected regions may be missed. Fixed geometry, independent Gaussian errors and adequate numerical resolution are assumed; boundary cases do not have calibrated 68% coverage. No Android or real TESS validation. Synthetic regression checks are recorded in scripts/physical_transit_patch43.log.

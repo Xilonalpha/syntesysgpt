@@ -1,0 +1,4 @@
+# Patch 22
+FITS archive quota defaults to 512 MiB; writes serialized across instances in the same process. Existing files are not deleted; deduplication remains available. This is not a cross-process quota or a total app storage quota.
+Manifest schema 2 includes a SHA-256 checksum and a strict reader verifying referenced FITS hashes. Schema 1 manifests are retained but rejected by the new reader. Checksums detect accidental changes, not malicious rewriting. FITS metadata identity and point counts are not revalidated by this reader. No analysis replay or UI integration yet. Existing algorithm label is unchanged and needs version audit.
+Standalone Kotlin ArchiveIntegrity22Check: 6 checks passed (deduplication, quota, roundtrip, modified manifest, invalid ID, modified FITS). Android build and live API not tested.

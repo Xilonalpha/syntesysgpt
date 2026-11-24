@@ -1,0 +1,4 @@
+# Patch 49
+Noise scale now uses max(scaled MAD, median reported flux error) / median flux. This prevents zero-MAD rejection and avoids overstating SNR when reported errors exceed empirical scatter. It is a heuristic, not a calibrated correlated-noise estimator.
+Integrated tests: noiseless synthetic transit and 200 ppm perturbation both recover period and radius; constant controls rejected. See scripts/integrated_patch49.log.
+BLS regression: 16 asserted datasets pass; four exploratory mixed signals recover correct period. Both exploratory eclipsing binaries are now detected (regression relative to patch 34); planetary classification remains unvalidated. Do not interpret periodic detection as planet confirmation. Next priority: binary discrimination and real TESS benchmark. No Android build or real observations tested.

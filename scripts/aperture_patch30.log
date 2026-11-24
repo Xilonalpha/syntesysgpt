@@ -1,0 +1,7 @@
+app/src/main/java/com/synthesis/service/PeriodicTransitAnalysisEngine.kt:369:13: warning: variable 'depthConsistencyNormalized' is never used
+        val depthConsistencyNormalized = (if (oddEvenDiffSigma <= 1.0) {
+            ^
+app/src/main/java/com/synthesis/service/TelescopeVisionPhotometryEngine.kt:126:9: warning: parameter 'bgSigma' is never used
+        bgSigma: Float,
+        ^
+11 aperture checks passed

@@ -1,0 +1,9 @@
+PASS epoch
+PASS same-sample comparison
+PASS conditional BIC
+PASS invalid duration
+PASS invalid exposure
+PASS partial exposure
+PASS periodic exposure
+PASS full period exposure
+PASS finite exposure comparison

@@ -1,0 +1,3 @@
+# Patch 35
+Adds a preliminary comparison ensemble consistency gate to camera photometry. Requires two distinct valid unsaturated comparison stars. Pairwise log flux ratios are compared with the first accepted ensemble, allowing common multiplicative changes. Rejects deviations exceeding max(0.005, 5 propagated fractional standard errors). Reset clears reference. This heuristic is not a calibrated statistical test, cannot detect common variability, and may reject real frames. First-frame reference uncertainty and long-term drift remain limitations. No persistent history or Android build validation in this patch.
+Independent JVM test: scripts/run_comparison_check.sh; see log.
