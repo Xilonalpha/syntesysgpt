@@ -104,10 +104,25 @@ class TessSurveyScannerWorker @AssistedInject constructor(
                         catch (e: kotlinx.coroutines.CancellationException) { throw e }
                         catch (e: Exception) { null }
                     } else null
-                    val timingReportHash = timingAudit?.let { synchronization.persistTimingReport(it) }
+                    val timingReportHash = timingAudit?.let {
+                        try { synchronization.persistTimingReport(it) }
+                        catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                        catch (e: Exception) { android.util.Log.w("TessSurveyScanner", "Report archive failed", e); null }
+                    }
+                    fun researchPlan(catalog: String, passed: Boolean, timing: Boolean): List<String> =
+                        com.synthesis.engine.discovery.PlanetResearchPlanner.plan(
+                            com.synthesis.engine.discovery.PlanetResearchPlanner.Input(
+                                observation.products.size, sectors.size, true,
+                                catalog == "CATALOG_PERIOD_OR_HARMONIC_MATCH" ||
+                                    catalog == "NO_PERIOD_MATCH_IN_QUERIED_TABLES; NOVELTY_UNVERIFIED",
+                                false, passed, timing, false
+                            )).map { it.name }
                     val payload = com.google.gson.JsonObject().apply {
                         timingAudit?.let { add("timing_audit", com.google.gson.Gson().toJsonTree(it)) }
                         timingReportHash?.let { addProperty("timing_report_sha256", it) }
+                        add("research_plan", com.google.gson.Gson().toJsonTree(researchPlan(comparison,
+                            !d.vetting.isSecondaryEclipseDetected && d.vetting.isOddEvenConsistent && d.vetting.isDurationPhysical,
+                            timingAudit?.status == "CONDITIONAL_COMPATIBILITY")))
                         addProperty("experiment_id", experiment)
                         addProperty("tic", tic)
                         addProperty("period_days", d.bestPeriodDays)
@@ -168,6 +183,7 @@ class TessSurveyScannerWorker @AssistedInject constructor(
                             val passed = !extra.vetting.isSecondaryEclipseDetected &&
                                 extra.vetting.isOddEvenConsistent && extra.vetting.isDurationPhysical
                             val extraPayload = payload.deepCopy().apply {
+                                add("research_plan", com.google.gson.Gson().toJsonTree(researchPlan(status, passed, false)))
                                 addProperty("additional_signal_id", signalId)
                                 remove("phase_evidence")
                             remove("timing_audit")
