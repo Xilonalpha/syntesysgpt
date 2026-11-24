@@ -5,7 +5,7 @@ OUT=${1:-evidence/multisignal}
 mkdir -p "$OUT"
 WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
 D=app/src/main/java/com/synthesis
-kotlinc scripts/discovery_check_stubs/Inject.kt scripts/bls_check_stubs/FitsHeader.kt scripts/TessMultiValidation.kt "$D"/domain/model/exoplanet/{PeriodicTransitModels,BayesianUncertaintyMetrics,TelescopeVisionModels,PhotometricObservation,PhysicalUncertaintyQuantification}.kt "$D"/engine/exoplanet/BayesianUncertaintyEngine.kt "$D"/service/PeriodicTransitAnalysisEngine.kt -include-runtime -d "$WORK/check.jar"
+kotlinc scripts/discovery_check_stubs/Inject.kt scripts/bls_check_stubs/FitsHeader.kt scripts/TessMultiValidation.kt "$D"/domain/model/exoplanet/{PeriodicTransitModels,BayesianUncertaintyMetrics,TelescopeVisionModels,PhotometricObservation,PhysicalUncertaintyQuantification}.kt "$D"/engine/exoplanet/BayesianUncertaintyEngine.kt "$D"/engine/exoplanet/CorrelatedNoisePhysics.kt "$D"/service/PeriodicTransitAnalysisEngine.kt -include-runtime -d "$WORK/check.jar"
 failed=0
 for seed in 11801 11802 11803; do
   python3 scripts/generate_multisignal_benchmark.py "$OUT/$seed.csv" --seed "$seed"
