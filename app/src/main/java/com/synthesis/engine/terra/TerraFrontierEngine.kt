@@ -8,6 +8,22 @@ import kotlin.math.roundToInt
 @Singleton
 class TerraFrontierEngine @Inject constructor() {
 
+    /** Integrate a supplied density profile using trapezoids; constant gravity. */
+    data class DensitySample(val depthM: Double, val densityKgM3: Double)
+    fun integrateHydrostaticPressure(samples: List<DensitySample>, gravity: Double = GRAVITY_ACCELERATION,
+        surfacePressurePa: Double = STANDARD_ATMOSPHERE_PA): Double {
+        require(samples.size >= 2 && samples.first().depthM == 0.0)
+        require(gravity.isFinite() && gravity > 0 && surfacePressurePa.isFinite() && surfacePressurePa >= 0)
+        require(samples.all { it.depthM.isFinite() && it.depthM in 0.0..12000.0 &&
+            it.densityKgM3.isFinite() && it.densityKgM3 > 0 })
+        require(samples.zipWithNext().all { (a,b) -> b.depthM > a.depthM })
+        val pressure = surfacePressurePa + gravity*samples.zipWithNext().sumOf { (a,b) ->
+            (b.depthM-a.depthM)*(a.densityKgM3/2+b.densityKgM3/2)
+        }
+        require(pressure.isFinite())
+        return pressure
+    }
+
     companion object {
         const val SURFACE_OCEANS_MASS_KG = 1.4e21       // Total mass of all Earth surface oceans (~1.4 billion km³)
         const val MANTLE_TRANSITION_ZONE_MASS_KG = 1.4e23 // Mass of 410-660 km mantle transition zone
