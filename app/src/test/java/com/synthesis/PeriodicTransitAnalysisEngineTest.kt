@@ -160,4 +160,32 @@ class PeriodicTransitAnalysisEngineTest {
         assertTrue("Should detect period in synthetic CSV fixture", parseResult.periodicTransitResult!!.isDetected)
         assertTrue("Log summary should mention BLS detection", parseResult.logSummary.contains("BLS"))
     }
+
+    @Test
+    fun testAdditionalSignalAfterPrimaryMask() {
+        val points = (0..800).map { i ->
+            val t = i * 0.015
+            val primary = if (t % 1.5 < 0.09) 0.025 else 0.0
+            val secondary = if ((t + 0.31) % 2.3 < 0.14) 0.012 else 0.0
+            PhotometricDataPoint(t * 1440.0, 2460000.0 + t,
+                1.0 - primary - secondary + 0.0002 * sin(t * 51.0), 0.0008)
+        }
+        val primary = engine.analyzeDataPoints(points, 1.3, 1.7)
+        assertTrue(primary.isDetected)
+        assertEquals(1.5, primary.bestPeriodDays, 0.05)
+        val secondary = engine.searchAdditionalSignal(points, primary, 2.0, 2.6)
+        assertNotNull("Injected secondary signal must be recovered", secondary)
+        assertEquals(2.3, secondary!!.bestPeriodDays, 0.08)
+        assertEquals(801, points.size)
+    }
+
+    @Test
+    fun testAdditionalSignalRejectsUndetectedPrimary() {
+        val points = (0..100).map { i ->
+            PhotometricDataPoint(i * 28.8, 2460000.0 + i * 0.02, 1.0, 0.001)
+        }
+        val primary = engine.analyzeDataPoints(points)
+        assertFalse(primary.isDetected)
+        assertNull(engine.searchAdditionalSignal(points, primary, 0.5, 1.0))
+    }
 }
