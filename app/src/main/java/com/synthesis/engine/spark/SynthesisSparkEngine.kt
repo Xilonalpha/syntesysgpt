@@ -42,7 +42,10 @@ class SynthesisSparkEngine @Inject constructor() {
         val targetPoints = points
 
         val totalCadences = targetPoints.size
-        val partitionCount = Runtime.getRuntime().availableProcessors().coerceIn(4, 16)
+        val requestedPartitions = Runtime.getRuntime().availableProcessors().coerceIn(1, 16)
+        val chunkSize = ceil(totalCadences.toDouble() / requestedPartitions).toInt()
+        val rawPartitions = targetPoints.chunked(chunkSize)
+        val partitionCount = rawPartitions.size
 
         // Stage 0: Parallel Ingestion & In-Memory Reshaping
         val ingestionDuration = measureTimeMillis {
@@ -58,8 +61,7 @@ class SynthesisSparkEngine @Inject constructor() {
         )
 
         // Partitioning the dataset into balanced contiguous chunks
-        val chunkSize = ceil(totalCadences.toDouble() / partitionCount).toInt()
-        val rawPartitions = targetPoints.chunked(chunkSize)
+
 
         // Stage 1: Distributed Iterative Sigma-Clipping across partitions
         val partitionTelemetry = mutableListOf<SparkPartitionTelemetry>()
@@ -74,7 +76,7 @@ class SynthesisSparkEngine @Inject constructor() {
                     val mean = fluxes.average()
                     val stdDev = sqrt(fluxes.map { (it - mean).pow(2) }.average()).coerceAtLeast(1e-6)
                     val thresholdHigh = mean + 3.5 * stdDev
-                    val thresholdLow = mean - 4.5 * stdDev // transits are downward
+                    val thresholdLow = Double.NEGATIVE_INFINITY // preserve downward transit signals
 
                     val filtered = chunk.filter { pt ->
                         val keep = pt.detrendedFlux in thresholdLow..thresholdHigh
@@ -152,12 +154,14 @@ class SynthesisSparkEngine @Inject constructor() {
         val baselineMean = outTransit.map { it.detrendedFlux }.average()
         val inTransitMean = inTransit.map { it.detrendedFlux }.average()
 
-        val measuredDepthPpm = ((baselineMean - inTransitMean).coerceAtLeast(0.0) * 1_000_000.0)
+        require(baselineMean.isFinite() && baselineMean > 0 && inTransitMean.isFinite())
+        val measuredDepthPpm = ((baselineMean - inTransitMean).coerceAtLeast(0.0) / baselineMean * 1_000_000.0)
         val outRms = if (outTransit.isNotEmpty()) {
             val variance = outTransit.map { (it.detrendedFlux - baselineMean).pow(2) }.average()
             sqrt(variance).coerceAtLeast(1e-6)
         } else 0.0005
 
+        require(measuredDepthPpm.isFinite())
         val snr = ((baselineMean - inTransitMean).coerceAtLeast(0.0) / outRms) * sqrt(inTransit.size.toDouble())
         val stage3Duration = (System.currentTimeMillis() - stage3Start).coerceAtLeast(1L)
 
