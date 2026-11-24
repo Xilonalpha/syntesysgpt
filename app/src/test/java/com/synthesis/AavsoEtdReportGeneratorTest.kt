@@ -77,8 +77,8 @@ class AavsoEtdReportGeneratorTest {
     }
 
     @Test
-    fun testRealPhotometricFileParser() {
-        println("=== TEST: REAL PHOTOMETRIC FILE PARSING (ASTROIMAGEJ / CSV) ===")
+    fun testSyntheticShortObservationDoesNotEstablishPlanet() {
+        println("=== TEST: SYNTHETIC SHORT PHOTOMETRIC SERIES ===")
         val sampleCsv = """
             # AstroImageJ Photometry Export
             BJD_TDB,rel_flux_T1,rel_flux_err_T1
@@ -96,8 +96,8 @@ class AavsoEtdReportGeneratorTest {
         val result = parser.parsePhotometryData(sampleCsv, defaultHostStarRadiusSun = 1.0)
         assertNotNull(result)
         assertEquals("Must parse 9 points", 9, result.points.size)
-        assertTrue("Depth must be around 14000 ppm", result.measuredDepthPpm > 10000.0)
-        assertTrue("Radius must be around Jupiter size (~12-15 R_Earth)", result.measuredRadiusEarth > 10.0)
-        assertTrue("SNR must be statistically significant", result.snr > 5.0)
+        assertFalse(requireNotNull(result.periodicTransitResult).isDetected)
+        assertTrue(result.measuredRadiusEarth.isNaN())
+        assertTrue(result.measuredDepthPpm.isNaN())
     }
 }
