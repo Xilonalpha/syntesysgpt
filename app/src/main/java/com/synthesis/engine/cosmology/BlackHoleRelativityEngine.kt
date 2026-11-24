@@ -109,11 +109,13 @@ class BlackHoleRelativityEngine @Inject constructor() {
     }
 
     /**
-     * Solves the exact Kerr and Schwarzschild relativistic equations
+     * Kerr horizon, prograde ISCO and temperature; shadow and lifetime are Schwarzschild reference approximations.
      */
     fun computeRelativisticProfile(target: BlackHoleTarget): RelativisticBlackHoleProfile {
+        require(target.massSolar.isFinite() && target.massSolar > 0 && target.distanceLightYears.isFinite() && target.distanceLightYears > 0)
+        require(target.spinParameterAStar.isFinite() && target.spinParameterAStar in 0.0..1.0)
         val massKg = target.massSolar * SOLAR_MASS_KG
-        val aStar = target.spinParameterAStar.coerceIn(0.0, 0.998)
+        val aStar = target.spinParameterAStar
 
         // Gravitational radius Rg = GM / c^2
         val rgMeters = (G * massKg) / (C * C)
@@ -144,7 +146,8 @@ class BlackHoleRelativityEngine @Inject constructor() {
         val shadowMicroArcsec = shadowAngularRad * RAD_TO_MICROARCSEC
 
         // Hawking radiation temperature: T_H = hbar * c^3 / (8 * pi * G * M * k_B)
-        val hawkingTempKelvin = (HBAR * C.pow(3.0)) / (8.0 * PI * G * massKg * K_BOLTZMANN)
+        val spinRoot = sqrt(1.0 - aStar*aStar)
+        val hawkingTempKelvin = (HBAR * C.pow(3.0)) / (8.0 * PI * G * massKg * K_BOLTZMANN) * (2.0 * spinRoot / (1.0 + spinRoot))
 
         // Evaporation lifetime in years: t_evap = (5120 * pi * G^2 * M^3) / (hbar * c^4)
         val tEvapSec = (5120.0 * PI * G.pow(2.0) * massKg.pow(3.0)) / (HBAR * C.pow(4.0))
