@@ -379,18 +379,20 @@ class SynthesisRepository @Inject constructor(
                 val summaryResponse = pubMedApi.getArticleSummaries(ids = pmids.joinToString(","))
                 val articles = summaryResponse.result?.idMap ?: emptyMap()
 
-                val observations = articles.values.mapIndexed { index, article ->
+                val observations = articles.values.mapIndexedNotNull { index, article ->
+                    val references = article.pmcrefcount?.toDouble()?.takeIf { it.isFinite() && it >= 0 } ?: return@mapIndexedNotNull null
+                    val epoch = parsePubMedDate(article.pubdate) ?: return@mapIndexedNotNull null
                     Observation(
                         id = "pubmed_${article.uid ?: index}",
                         investigationId = "",
                         sourceId = "pubmed",
                         sourceName = "PubMed / NCBI",
                         entity = article.title ?: "Unknown Paper",
-                        timestamp = parsePubMedDate(article.pubdate) ?: System.currentTimeMillis(),
+                        timestamp = epoch,
                         location = null,
                         measurement = Measurement(
-                            value = article.pmcrefcount?.toDouble() ?: 0.0,
-                            unit = "citations"
+                            value = references,
+                            unit = "pmc_reference_count"
                         ),
                         rawData = article.toString(),
                         normalizedData = "title:${article.title},authors:${article.authors?.joinToString { it.name ?: "" }},journal:${article.source},year:${article.pubdate}",
@@ -832,11 +834,11 @@ class SynthesisRepository @Inject constructor(
                 dataArray.forEachIndexed { index, element ->
                     if (element.isJsonObject) {
                         val obj = element.asJsonObject
-                        val dateStr = obj.get("date")?.asString
+                        val dateStr = obj.get("date")?.takeUnless { it.isJsonNull }?.asString?.takeIf { it.matches(Regex("[0-9]{4}")) } ?: return@forEachIndexed
                         val valElement = obj.get("value")
                         if (valElement != null && !valElement.isJsonNull) {
-                            val value = valElement.asDouble
-                            val ts = parseDate("$dateStr-01-01")
+                            val value = valElement.asDouble.takeIf { it.isFinite() } ?: return@forEachIndexed
+                            val ts = parseNasaPowerDate(dateStr + "0101") ?: return@forEachIndexed
                             observations.add(
                                 Observation(
                                     id = "worldbank_${country}_${indicator}_${dateStr ?: index}",
@@ -846,7 +848,7 @@ class SynthesisRepository @Inject constructor(
                                     entity = "Indicator $indicator ($country, $dateStr)",
                                     timestamp = ts,
                                     location = null,
-                                    measurement = Measurement(value = value, unit = "index"),
+                                    measurement = Measurement(value = value, unit = "indicator:$indicator"),
                                     rawData = obj.toString(),
                                     normalizedData = "country:$country,indicator:$indicator,year:$dateStr,value:$value",
                                     uncertainty = 0.05f,
@@ -858,24 +860,6 @@ class SynthesisRepository @Inject constructor(
                 }
             }
 
-            if (observations.isEmpty()) {
-                observations.add(
-                    Observation(
-                        id = "worldbank_${country}_${indicator}_${System.currentTimeMillis()}",
-                        investigationId = "",
-                        sourceId = "worldbank",
-                        sourceName = "World Bank Open Data",
-                        entity = "Indicator $indicator ($country)",
-                        timestamp = System.currentTimeMillis(),
-                        location = null,
-                        measurement = Measurement(value = 1.0, unit = "index"),
-                        rawData = response.toString(),
-                        normalizedData = "country:$country,indicator:$indicator",
-                        uncertainty = 0.05f,
-                        observationType = ObservationType.HISTORICAL
-                    )
-                )
-            }
             Result.success(observations)
         } catch (e: Exception) {
             Result.failure(e)
@@ -890,54 +874,8 @@ class SynthesisRepository @Inject constructor(
                 startTime = "'$startTime'",
                 stopTime = "'$endTime'"
             )
-            val text = response.string()
-            val observations = mutableListOf<Observation>()
-
-            // Extract rows between $$SOE and $$EOE
-            val startIndex = text.indexOf("$$" + "SOE")
-            val endIndex = text.indexOf("$$" + "EOE")
-            if (startIndex != -1 && endIndex != -1 && endIndex > startIndex) {
-                val dataBlock = text.substring(startIndex + 5, endIndex).trim()
-                val lines = dataBlock.lines().filter { it.isNotBlank() }
-                lines.take(20).forEachIndexed { index, line ->
-                    observations.add(
-                        Observation(
-                            id = "jpl_${target}_${index}",
-                            investigationId = "",
-                            sourceId = "jpl",
-                            sourceName = "JPL Horizons API",
-                            entity = "Ephemeris: $target",
-                            timestamp = System.currentTimeMillis() + (index * 86400000L),
-                            location = null,
-                            measurement = Measurement(value = 1.0 + (index * 0.01), unit = "AU"),
-                            rawData = line,
-                            normalizedData = "target:$target,center:$center,line:$line",
-                            uncertainty = 0.001f,
-                            observationType = ObservationType.ASTRONOMICAL
-                        )
-                    )
-                }
-            }
-
-            if (observations.isEmpty()) {
-                observations.add(
-                    Observation(
-                        id = "jpl_${target}_${System.currentTimeMillis()}",
-                        investigationId = "",
-                        sourceId = "jpl",
-                        sourceName = "JPL Horizons API",
-                        entity = "Ephemeris Target: $target",
-                        timestamp = System.currentTimeMillis(),
-                        location = null,
-                        measurement = Measurement(value = 1.0, unit = "AU"),
-                        rawData = text.take(300),
-                        normalizedData = "target:$target,center:$center,start:$startTime,end:$endTime",
-                        uncertainty = 0.001f,
-                        observationType = ObservationType.ASTRONOMICAL
-                    )
-                )
-            }
-            Result.success(observations)
+            response.close()
+            Result.failure(IllegalStateException("JPL ephemeris numerical ingestion unavailable until response columns and time scale are validated"))
         } catch (e: Exception) {
             Result.failure(e)
         }
