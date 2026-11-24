@@ -62,31 +62,18 @@ class AdvancedAstroEnginesTest {
         assertNotNull("CFC pollution must be tracked", tech.cfcPollutionSigma)
     }
 
+    @Test(expected = UnsupportedOperationException::class)
+    fun testMagnitudeOnlyDilutionIsRejected() {
+        deblendEngine.deblendCandidate("Synthetic fixture", "300015239", "FP",
+            340.0, 10.45, 10.82, 4.2, 0.88)
+    }
+
     @Test
-    fun testGaiaDilutionDeBlenderRescuesFalsePositive() {
-        println("=== TEST 3: GAIA DILUTION DE-BLENDER RESCUES FALSE POSITIVE ===")
-        // A star with Gaia mag 10.45 has a neighbor at 4.2 arcsec with mag 10.82
-        // Observed shallow depth: 340 ppm.
-        val rescue = deblendEngine.deblendCandidate(
-            candidateName = "TOI-1785.01",
-            ticId = "300015239",
-            originalNasaStatus = "False Positive (FP - Grazing Binary)",
-            observedTransitDepthPpm = 340.0,
-            targetStarMagGaia = 10.45,
-            blendingStarMagGaia = 10.82,
-            angularSeparationArcsec = 4.2,
-            stellarRadiusSun = 0.88
-        )
-
-        println("Dilution Factor: ${rescue.dilutionCorrectionFactor}x")
-        println("Observed Depth: ${rescue.observedTransitDepthPpm} ppm -> True Depth: ${rescue.trueTransitDepthPpm} ppm")
-        println("Apparent Radius: ${rescue.apparentRadiusEarth} R_earth -> True Radius: ${rescue.trueCorrectedRadiusEarth} R_earth")
-        println("Is Rescued to Rocky: ${rescue.isRescuedToRockyPlanet}")
-        println("Verdict: ${rescue.rescueVerdict}")
-
-        assertTrue("Dilution factor must be > 1.4x for close Gaia neighbor", rescue.dilutionCorrectionFactor > 1.4)
-        assertTrue("True depth must be greater than observed depth", rescue.trueTransitDepthPpm > rescue.observedTransitDepthPpm)
-        assertTrue("Candidate should be rescued to rocky planet regime (0.8 - 3.5 R_earth)", rescue.isRescuedToRockyPlanet)
+    fun testMeasuredApertureDilution() {
+        val estimate = deblendEngine.deblendMeasured(1000.0, 10.0, 100.0, 2.0, 50.0, 3.0)
+        assertEquals(1.5, estimate.correctionFactor, 1e-10)
+        assertEquals(1500.0, estimate.depthPpm, 1e-8)
+        assertEquals(35.0, estimate.depthErrorPpm, 1e-8)
     }
 
     @Test
