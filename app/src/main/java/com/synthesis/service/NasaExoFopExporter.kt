@@ -28,10 +28,16 @@ class NasaExoFopExporter @Inject constructor(
     val validationEngine: com.synthesis.engine.validation.TessHeasarcValidationEngine
 ) {
 
-    private val gson: Gson = GsonBuilder()
-        .setPrettyPrinting()
-        .serializeSpecialFloatingPointValues()
-        .create()
+    private val gson: Gson = GsonBuilder().setPrettyPrinting().create()
+
+    private fun blockedJson(): String = gson.toJson(mapOf(
+        "status" to "blocked",
+        "reason" to "provenance not validated",
+        "submissionReady" to false
+    ))
+
+    private fun blockedCsv(): String =
+        "status,reason,submissionReady\nblocked,provenance not validated,false\n"
 
     data class ExoFopCtoiRecord(
         val ticId: Long,
@@ -80,35 +86,35 @@ class NasaExoFopExporter @Inject constructor(
     )
 
     suspend fun exportAllDiscoveriesJson(): String = withContext(Dispatchers.IO) {
-        "EXPORT BLOCKED: provenance not validated"
+        blockedJson()
     }
 
     suspend fun exportAllDiscoveriesCsv(): String = withContext(Dispatchers.IO) {
-        "EXPORT BLOCKED: provenance not validated"
+        blockedCsv()
     }
 
     suspend fun exportSingleDiscoveryJson(id: Int): String? = withContext(Dispatchers.IO) {
-        "EXPORT BLOCKED: provenance not validated"
+        blockedJson()
     }
 
     suspend fun exportSingleDiscoveryCsv(id: Int): String? = withContext(Dispatchers.IO) {
-        "EXPORT BLOCKED: provenance not validated"
+        blockedCsv()
     }
 
     suspend fun exportDiscoveryByTicJson(ticId: String): String? = withContext(Dispatchers.IO) {
-        "EXPORT BLOCKED: provenance not validated"
+        blockedJson()
     }
 
     suspend fun exportDiscoveryByTicCsv(ticId: String): String? = withContext(Dispatchers.IO) {
-        "EXPORT BLOCKED: provenance not validated"
+        blockedCsv()
     }
 
     suspend fun exportDetectionResultJson(res: com.synthesis.domain.model.xilon.XilonDetectionResult): String = withContext(Dispatchers.IO) {
-        "EXPORT BLOCKED: provenance not validated"
+        blockedJson()
     }
 
     suspend fun exportDetectionResultCsv(res: com.synthesis.domain.model.xilon.XilonDetectionResult): String = withContext(Dispatchers.IO) {
-        "EXPORT BLOCKED: provenance not validated"
+        blockedCsv()
     }
 
     suspend fun saveReportToFile(content: String, fileName: String): File = withContext(Dispatchers.IO) {
@@ -136,15 +142,12 @@ class NasaExoFopExporter @Inject constructor(
 
         val radiusEarth = entity.planetRadiusEarth
         val radiusJupiter = radiusEarth?.div(11.209)
-        val semiMajorAu = ((entity.periodDays / 365.25) * (entity.periodDays / 365.25)).let { p2 ->
-            Math.cbrt(p2 * 1.0)
-        }
+        val semiMajorAu: Double? = null // Stellar mass and provenance unavailable.
 
         val ctoiDisposition = when {
             entity.verdict.contains("CONFIRMED", ignoreCase = true) || entity.archivalStatus.contains("CONFIRMED", ignoreCase = true) -> "KP"
             entity.verdict.contains("FALSE_POSITIVE", ignoreCase = true) -> "FP"
             entity.verdict.contains("ECLIPSING_BINARY", ignoreCase = true) -> "EB"
-            entity.snr >= 7.1 -> "PC"
             else -> "AMB"
         }
 
