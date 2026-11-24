@@ -11,6 +11,7 @@ def exact_products(products, tic):
     return sorted({str(row["dataURI"]) for row in products
                    if str(row["productFilename"]).endswith("_lc.fits")
                    and str(row["dataURI"]).startswith("mast:TESS/product/")
+                   and str(row["productFilename"]) == str(row["dataURI"]).rsplit("/", 1)[-1]
                    and f"-{tic:016d}-" in str(row["dataURI"]).rsplit("/", 1)[-1]})
 
 
@@ -32,7 +33,10 @@ def validate_fits(path, tic):
                 raise ValueError("Empty light curve")
             if not {"TIME", "PDCSAP_FLUX", "QUALITY"}.issubset(data.names):
                 raise ValueError("Missing required SPOC light curve columns")
-            return {"tic": tic, "sector": int(header["SECTOR"]), "rows": len(data)}
+            sector = int(header["SECTOR"])
+            if sector <= 0:
+                raise ValueError("Invalid TESS sector")
+            return {"tic": tic, "sector": sector, "rows": len(data)}
 
 
 def main():
@@ -44,7 +48,8 @@ def main():
         p.error('Positive TIC and new output directory required')
     from astroquery.mast import Observations
     obs = Observations.query_criteria(obs_collection='TESS', provenance_name='SPOC', target_name=str(a.tic))
-    if not len(obs):
+    candidates = exact_products(Observations.get_product_list(obs), a.tic) if len(obs) else []
+    if not candidates:
         # Resolve the TIC to sky coordinates; CAOM target names are not always TIC IDs.
         from astroquery.mast import Catalogs
         from astropy.coordinates import SkyCoord
@@ -58,8 +63,8 @@ def main():
         print(f'Coordinate search returned {len(obs)} SPOC observations')
         if not len(obs):
             raise RuntimeError('No SPOC observations found for resolved TIC')
-    products = Observations.get_product_list(obs)
-    candidates = exact_products(products, a.tic)
+        products = Observations.get_product_list(obs)
+        candidates = exact_products(products, a.tic)
     if not candidates:
         raise RuntimeError('No SPOC light curve found')
     a.output.mkdir(parents=True)
