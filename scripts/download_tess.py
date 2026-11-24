@@ -31,7 +31,7 @@ def validate_fits(path, tic):
             data = hdus["LIGHTCURVE"].data
             if data is None or len(data) == 0:
                 raise ValueError("Empty light curve")
-            if not {"TIME", "PDCSAP_FLUX", "QUALITY"}.issubset(data.names):
+            if not {"TIME", "PDCSAP_FLUX", "PDCSAP_FLUX_ERR", "QUALITY"}.issubset(data.names):
                 raise ValueError("Missing required SPOC light curve columns")
             sector = int(header["SECTOR"])
             if sector <= 0:
@@ -68,18 +68,34 @@ def main():
     if not candidates:
         raise RuntimeError('No SPOC light curve found')
     a.output.mkdir(parents=True)
-    uri = candidates[0]
-    path = a.output / uri.rsplit('/', 1)[-1]
-    status, message, url = Observations.download_file(uri, local_path=str(path), cache=False)
-    if status != 'COMPLETE' or not path.is_file():
-        raise RuntimeError(f'MAST download failed: {status} {message}')
-    try:
-        metadata = validate_fits(path, a.tic)
-    except Exception:
-        path.unlink(missing_ok=True)
-        raise
+    attempts = []
+    metadata = None
+    for uri in candidates:
+        path = a.output / uri.rsplit('/', 1)[-1]
+        for attempt in range(1, 3):
+            record = {"uri": uri, "attempt": attempt}
+            try:
+                status, message, url = Observations.download_file(uri, local_path=str(path), cache=False)
+                if status != 'COMPLETE' or not path.is_file():
+                    raise RuntimeError(f'MAST download failed: {status} {message}')
+                record["sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
+                metadata = validate_fits(path, a.tic)
+                record["status"] = "accepted"
+            except Exception as exc:
+                record.update(status="rejected", error=f"{type(exc).__name__}: {exc}")
+                path.unlink(missing_ok=True)
+                print(f"Rejected {uri}, attempt {attempt}: {exc}", flush=True)
+            finally:
+                attempts.append(record)
+                (a.output / 'download_attempts.json').write_text(json.dumps(attempts, indent=2) + '\\n')
+            if metadata is not None:
+                break
+        if metadata is not None:
+            break
+    if metadata is None:
+        raise RuntimeError('No exact SPOC product passed integrity validation')
     metadata.update(source_uri=uri, candidate_uris=candidates,
-                    selection_policy="lexicographically_first_exact_product",
+                    selection_policy="first_integrity_valid_exact_product_sorted_uri_two_attempts",
                     sha256=hashlib.sha256(path.read_bytes()).hexdigest())
     (a.output / 'download_manifest.json').write_text(json.dumps(metadata, indent=2) + '\n')
     (a.output / 'source_uri.txt').write_text(uri + '\n')
