@@ -584,7 +584,21 @@ class PeriodicTransitAnalysisEngine @Inject constructor(
             bayesianUncertainty = null
         )
 
+        // Diagnostic only: the fitted box residuals are not an independent null sample.
+        val cadenceGaps = tClean.zipWithNext { a, b -> b - a }.filter { it.isFinite() && it > 0 }.sorted()
+        val cadence = cadenceGaps.getOrNull(cadenceGaps.size / 2)
+        val noiseDiagnostic = cadence?.let { dt ->
+            val blockSize = (bestDurationDays / dt).coerceIn(2.0, 1024.0).roundToInt()
+            val residuals = tClean.indices.map { i ->
+                val cycles = (tClean[i] - bestEpoch) / bestPeriod
+                val inside = abs(cycles - round(cycles)) <= inTransitHalfWidth
+                yClean[i] - (yWeightedMean + bestDepthFraction * (boxWeight - if (inside) 1.0 else 0.0))
+            }
+            com.synthesis.engine.exoplanet.CorrelatedNoisePhysics.estimate(tClean, residuals, dt, blockSize)
+        }
         val status = buildString {
+            if (noiseDiagnostic == null) append("Zgomot corelat: diagnostic indisponibil. ")
+            else append("Zgomot rezidual: rho1=${String.format(java.util.Locale.US, "%.3f", noiseDiagnostic.lagOneCorrelation)}, beta=${String.format(java.util.Locale.US, "%.2f", noiseDiagnostic.blockNoiseRatio)}, blocuri=${noiseDiagnostic.completeBlocks}; FAP necalibrată. ")
             if (constrainDuration) append("Căutare experimentală cu durate constrânse; FAP necalibrată. ")
             if (!durationRatio.isFinite()) append("Geometrie circulară neevaluată: parametri stelari lipsă sau incompatibili. ")
             else if (!isDurationPhysical) append("Durată peste limita modelului circular central; necesită verificarea excentricității, diluției și parametrilor stelari. ")
