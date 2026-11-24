@@ -34,7 +34,8 @@ class SynthesisRepository @Inject constructor(
     private val jplHorizonsApi: JplHorizonsApi,
     private val exoplanetArchiveApi: ExoplanetArchiveApi,
     private val exoplanetCandidateFinder: ExoplanetCandidateFinder,
-    private val sourceOrchestrator: SourceOrchestrator
+    private val sourceOrchestrator: SourceOrchestrator,
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context
 ) {
 
     // ==================== LOCAL DB ====================
@@ -156,6 +157,7 @@ class SynthesisRepository @Inject constructor(
                 }
                 Result.success(observations)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 Result.failure(e)
             }
         }
@@ -181,6 +183,7 @@ class SynthesisRepository @Inject constructor(
                 )
                 Result.success(observation)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 Result.failure(e)
             }
         }
@@ -242,6 +245,7 @@ class SynthesisRepository @Inject constructor(
                 } ?: emptyList()
                 Result.success(observations)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 Result.failure(e)
             }
         }
@@ -307,6 +311,7 @@ class SynthesisRepository @Inject constructor(
                 }
                 Result.success(observations)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 Result.failure(e)
             }
         }
@@ -363,6 +368,7 @@ class SynthesisRepository @Inject constructor(
                 }
                 Result.success(observations)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 Result.failure(e)
             }
         }
@@ -402,6 +408,7 @@ class SynthesisRepository @Inject constructor(
                 }
                 Result.success(observations)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 Result.failure(e)
             }
         }
@@ -438,6 +445,7 @@ class SynthesisRepository @Inject constructor(
                 } ?: emptyList()
                 Result.success(observations)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 Result.failure(e)
             }
         }
@@ -453,6 +461,7 @@ class SynthesisRepository @Inject constructor(
             )
             Result.success(candidates)
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             Result.failure(e)
         }
     }
@@ -466,6 +475,7 @@ class SynthesisRepository @Inject constructor(
             )
             Result.success(candidates)
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             Result.failure(e)
         }
     }
@@ -479,6 +489,7 @@ class SynthesisRepository @Inject constructor(
             )
             Result.success(candidates)
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             Result.failure(e)
         }
     }
@@ -492,6 +503,7 @@ class SynthesisRepository @Inject constructor(
             )
             Result.success(planets)
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             Result.failure(e)
         }
     }
@@ -592,6 +604,7 @@ class SynthesisRepository @Inject constructor(
             }
             Result.success(observations)
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             Result.failure(e)
         }
     }
@@ -630,6 +643,7 @@ class SynthesisRepository @Inject constructor(
             }
             Result.success(observations)
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             Result.failure(e)
         }
     }
@@ -666,6 +680,7 @@ class SynthesisRepository @Inject constructor(
             }
             Result.success(observations)
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             Result.failure(e)
         }
     }
@@ -702,6 +717,7 @@ class SynthesisRepository @Inject constructor(
             }
             Result.success(observations)
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             Result.failure(e)
         }
     }
@@ -739,6 +755,7 @@ class SynthesisRepository @Inject constructor(
             }
             Result.success(observations)
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             Result.failure(e)
         }
     }
@@ -784,6 +801,7 @@ class SynthesisRepository @Inject constructor(
             }
             Result.success(observations)
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             Result.failure(e)
         }
     }
@@ -820,6 +838,7 @@ class SynthesisRepository @Inject constructor(
             }
             Result.success(observations)
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             Result.failure(e)
         }
     }
@@ -862,6 +881,7 @@ class SynthesisRepository @Inject constructor(
 
             Result.success(observations)
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             Result.failure(e)
         }
     }
@@ -874,10 +894,25 @@ class SynthesisRepository @Inject constructor(
                 startTime = "'$startTime'",
                 stopTime = "'$endTime'"
             )
-            val raw = response.use { it.string() }
-            val vectors = com.synthesis.engine.validation.HorizonsVectorParser.parse(raw)
-            val digest = java.security.MessageDigest.getInstance("SHA-256")
-                .digest(raw.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it.toInt() and 255) }
+            val bytes = response.use { body ->
+                val limit = 8 * 1024 * 1024
+                val output = java.io.ByteArrayOutputStream()
+                val input = body.byteStream()
+                val buffer = ByteArray(8192)
+                while (true) {
+                    kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    require(output.size() <= limit - count) { "JPL response exceeds archive limit" }
+                    output.write(buffer, 0, count)
+                }
+                output.toByteArray()
+            }
+            val archive = com.synthesis.service.RawResponseArchive(java.io.File(context.filesDir, "scientific_raw_responses"))
+            val digest = archive.save(bytes)
+            val vectors = com.synthesis.engine.validation.HorizonsVectorParser.parse(
+                archive.readVerified(digest).toString(Charsets.UTF_8)
+            )
             // Observation.timestamp is Unix UTC, not TDB. Store retrieval time explicitly;
             // the actual ephemeris epoch remains JD TDB in the source record.
             val retrievedAt = System.currentTimeMillis()
@@ -898,6 +933,7 @@ class SynthesisRepository @Inject constructor(
                 )
             })
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             Result.failure(e)
         }
     }
