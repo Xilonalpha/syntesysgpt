@@ -112,8 +112,8 @@ class PeriodicTransitAnalysisEngineTest {
     fun testFramePhotometrySampleAnalysis() {
         val samples = mutableListOf<FramePhotometrySample>()
         val p = 1.0
-        for (i in 0..120) {
-            val t = i * 0.025 // days
+        for (i in 0..400) {
+            val t = i * 0.01 // days
             val inTransit = (t % p) < 0.05
             val flux = if (inTransit) 0.985 else 1.0 // 15,000 ppm
             samples.add(
@@ -147,7 +147,7 @@ class PeriodicTransitAnalysisEngineTest {
         val csv = buildString {
             append("BJD_TDB,Relative_Flux,Flux_Error\n")
             val p = 0.8
-            for (i in 0..150) {
+            for (i in 0..400) {
                 val t = 2460100.0 + (i * 0.015)
                 val inTransit = ((t - 2460100.0) % p) < 0.04
                 val flux = if (inTransit) 0.988 else 1.0
@@ -157,7 +157,7 @@ class PeriodicTransitAnalysisEngineTest {
 
         val parseResult = parser.parsePhotometryData(csv)
         assertNotNull("Periodic transit result must be populated", parseResult.periodicTransitResult)
-        assertTrue("Should detect period in parsed real photometric dataset", parseResult.periodicTransitResult!!.isDetected)
+        assertTrue("Should detect period in synthetic CSV fixture", parseResult.periodicTransitResult!!.isDetected)
         assertTrue("Log summary should mention BLS detection", parseResult.logSummary.contains("BLS"))
     }
 }
