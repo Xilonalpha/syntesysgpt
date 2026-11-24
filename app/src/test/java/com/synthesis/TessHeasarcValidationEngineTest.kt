@@ -67,20 +67,26 @@ class TessHeasarcValidationEngineTest {
     @Test
     fun testPreReportValidationCandidateDossier() {
         println("=== TEST 3: Pre-Report Validation Dossier with Sector Rectification ===")
-        val sampleStar = StellarTarget(
+        val sampleStar = MastStarProperties(
             ticId = "123891044",
             ra = 103.5412,
             dec = -8.8524,
             tMag = 12.10,
             radiusSun = 0.48,
             massSun = 0.50,
-            tEff = 3700.0
+            teff = 3700.0,
+            distancePc = null,
+            luminosity = null
         )
 
         val sampleDetection = XilonDetectionResult(
             star = sampleStar,
             sector = "Sector 75 (s0075)",
             tceName = "TCE_1",
+            totalPhotonsAnalyzed = 0,
+            derivedSemiMajorAxisAu = null,
+            lightCurveSample = emptyList(),
+            analysisLog = listOf("Synthetic unit test fixture"),
             orbitalPeriodDays = 7.15,
             transitDurationHours = 2.8,
             transitDepthPpm = 1100.0,
@@ -93,8 +99,8 @@ class TessHeasarcValidationEngineTest {
             planetDensityGcm3 = 4.1,
             derivedEquilibriumTempK = 278.0,
             isHabitableZone = true,
-            compositionClass = CompositionClass.ROCKY_TERRESTRIAL,
-            verdict = DetectionVerdict.STRONG_CANDIDATE,
+            compositionClass = PlanetaryCompositionClass.ROCKY_TERRESTRIAL,
+            verdict = XilonDiscoveryVerdict.PRIMARY_EXOPLANET_CANDIDATE,
             verdictTitle = "HABITABLE ZONE CANDIDATE",
             verdictSummary = "Candidate transit detected in resonance",
             astrometry = AstrometryEngine.AstrometricTargetDossier(
@@ -112,8 +118,14 @@ class TessHeasarcValidationEngineTest {
             archivalCrossMatch = ArchivalCrossMatch(
                 canonicalName = "TIC 123891044 (Resonant Pair)",
                 status = ArchivalCatalogStatus.POTENTIAL_NEW_SIGNAL,
-                toiId = null,
-                catalogSource = "Planet Hunters TTV Hunt"
+                officialDisposition = "UNRECORDED",
+                discoveryYear = null,
+                discoveryFacility = null,
+                literaturePeriodDays = null,
+                literatureDurationHours = null,
+                literatureDepthPpm = null,
+                literatureRadiusEarth = null,
+                isBenchmarkTarget = false
             )
         )
 
@@ -129,14 +141,16 @@ class TessHeasarcValidationEngineTest {
     @Test
     fun testEclipsingBinaryFlagging() {
         println("=== TEST 4: Eclipsing Binary (EB) False Positive Identification ===")
-        val binaryStar = StellarTarget(
+        val binaryStar = MastStarProperties(
             ticId = "99999999",
             ra = 120.0,
             dec = 30.0,
             tMag = 10.0,
             radiusSun = 1.0,
             massSun = 1.0,
-            tEff = 5800.0
+            teff = 5800.0,
+            distancePc = null,
+            luminosity = null
         )
 
         // Binary with high odd-even delta sigma (4.5 sigma) and secondary eclipse
@@ -144,6 +158,10 @@ class TessHeasarcValidationEngineTest {
             star = binaryStar,
             sector = "Sector 20",
             tceName = "TCE_EB",
+            totalPhotonsAnalyzed = 0,
+            derivedSemiMajorAxisAu = null,
+            lightCurveSample = emptyList(),
+            analysisLog = listOf("Synthetic unit test fixture"),
             orbitalPeriodDays = 1.85,
             transitDurationHours = 2.1,
             transitDepthPpm = 45000.0, // 4.5% depth!
@@ -156,16 +174,22 @@ class TessHeasarcValidationEngineTest {
             planetDensityGcm3 = 1.2,
             derivedEquilibriumTempK = 1400.0,
             isHabitableZone = false,
-            compositionClass = CompositionClass.GAS_GIANT,
-            verdict = DetectionVerdict.FALSE_POSITIVE,
+            compositionClass = PlanetaryCompositionClass.JOVIAN_GAS_GIANT,
+            verdict = XilonDiscoveryVerdict.ECLIPSING_BINARY_FALSE_POSITIVE,
             verdictTitle = "ECLIPSING BINARY",
             verdictSummary = "Deep alternating eclipses",
             astrometry = null,
             archivalCrossMatch = ArchivalCrossMatch(
                 canonicalName = "TIC 99999999",
                 status = ArchivalCatalogStatus.POTENTIAL_NEW_SIGNAL,
-                toiId = null,
-                catalogSource = "TESS"
+                officialDisposition = "UNRECORDED",
+                discoveryYear = null,
+                discoveryFacility = null,
+                literaturePeriodDays = null,
+                literatureDurationHours = null,
+                literatureDepthPpm = null,
+                literatureRadiusEarth = null,
+                isBenchmarkTarget = false
             )
         )
 
