@@ -46,6 +46,7 @@ def main():
     p.add_argument('--tic', type=int, required=True)
     p.add_argument('--output', type=Path, required=True)
     p.add_argument('--sector', type=int)
+    p.add_argument('--list-sectors', action='store_true')
     a = p.parse_args()
     if a.sector is not None and a.sector <= 0:
         p.error('Positive sector required')
@@ -74,6 +75,15 @@ def main():
         candidates = [uri for uri in candidates if f'-s{a.sector:04d}-' in uri.rsplit('/', 1)[-1]]
     if not candidates:
         raise RuntimeError('No SPOC light curve found for requested selection')
+    if a.list_sectors:
+        import re
+        sectors = sorted({int(m.group(1)) for uri in candidates
+                          if (m := re.search(r'-s(\d{4})-', uri))})
+        if not sectors:
+            raise RuntimeError('No sectors identified')
+        a.output.mkdir(parents=True)
+        (a.output / 'available_sectors.json').write_text(json.dumps(sectors))
+        return
     a.output.mkdir(parents=True)
     attempts = []
     metadata = None
