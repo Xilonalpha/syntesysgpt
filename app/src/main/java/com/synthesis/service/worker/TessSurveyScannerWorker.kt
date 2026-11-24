@@ -59,9 +59,17 @@ class TessSurveyScannerWorker @AssistedInject constructor(
             // Independent evidence is archived by the research service, not counted as a confirmed discovery.
             if (unvettedOnly) {
                 val page = prefs.getInt("independent_tic_page", 1).coerceAtLeast(1)
+                val pendingTargets = prefs.getString("independent_retry_queue", "").orEmpty().split(',')
+                    .filter { it.matches(Regex("[0-9]+")) }.distinct().toMutableList()
                 val shortlisted = mutableListOf<String>()
                 val signals = xilonRepository.runIndependentSurveyPage(
-                    maxTmag, page, batchSize.coerceIn(1, 10), synchronization
+                    maxTmag, page, batchSize.coerceIn(1, 10), synchronization,
+                    retryTargets = pendingTargets.take(3),
+                    onTargetOutcome = { tic, success ->
+                        pendingTargets.remove(tic)
+                        if (!success) pendingTargets.add(tic)
+                        check(prefs.edit().putString("independent_retry_queue", pendingTargets.joinToString(",")).commit())
+                    }
                 ) { observation, comparison, comparisonEvidence ->
                     val d = observation.periodicDetection
                     val experiment = requireNotNull(observation.experimentId)
@@ -116,7 +124,7 @@ class TessSurveyScannerWorker @AssistedInject constructor(
                 prefs.edit()
                     .putInt("independent_tic_page", if (page == Int.MAX_VALUE) 1 else page + 1)
                     .putLong(KEY_LAST_RUN_TIMESTAMP, System.currentTimeMillis())
-                    .putString(KEY_LAST_RUN_STATUS, "INDEPENDENT_PAGE_${page}: ${signals.size} archived signals; novelty unverified")
+                    .putString(KEY_LAST_RUN_STATUS, "INDEPENDENT_PAGE_${page}: ${signals.size} archived signals; ${pendingTargets.size} pending retries; novelty unverified")
                     .apply()
                 return@withContext Result.success()
             }
