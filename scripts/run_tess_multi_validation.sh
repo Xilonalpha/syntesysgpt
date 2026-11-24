@@ -14,5 +14,5 @@ else
 fi
 cmp "$CSV" "$WORK/replay.csv"
 D=app/src/main/java/com/synthesis
-kotlinc scripts/discovery_check_stubs/Inject.kt scripts/bls_check_stubs/FitsHeader.kt scripts/TessMultiValidation.kt "$D"/domain/model/exoplanet/{PeriodicTransitModels,BayesianUncertaintyMetrics,TelescopeVisionModels,PhotometricObservation,PhysicalUncertaintyQuantification}.kt "$D"/engine/exoplanet/BayesianUncertaintyEngine.kt "$D"/service/PeriodicTransitAnalysisEngine.kt -include-runtime -d "$WORK/check.jar"
+kotlinc scripts/discovery_check_stubs/Inject.kt scripts/bls_check_stubs/FitsHeader.kt scripts/TessMultiValidation.kt "$D"/domain/model/exoplanet/{PeriodicTransitModels,BayesianUncertaintyMetrics,TelescopeVisionModels,PhotometricObservation,PhysicalUncertaintyQuantification}.kt "$D"/engine/exoplanet/BayesianUncertaintyEngine.kt "$D"/engine/exoplanet/CorrelatedNoisePhysics.kt "$D"/service/PeriodicTransitAnalysisEngine.kt -include-runtime -d "$WORK/check.jar"
 java -jar "$WORK/check.jar" "$WORK/replay.csv" "$LO" "$HI" "$EXPECTED"
