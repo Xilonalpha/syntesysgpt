@@ -328,7 +328,12 @@ class XilonViewModel @Inject constructor(
                 val bls = result.periodicDetection
                 _independentStatus.value = "TIC ${result.target.ticId} | ${result.dataPoints.size} points | " +
                     (if (bls.isDetected) "Preliminary signal: P=${bls.bestPeriodDays} d; SNR=${bls.transitSnr}" else "No accepted periodic signal") +
-                    " | " + (if (bls.isDetected) xilonRepository.compareCatalogPeriods(result.target.ticId, bls.bestPeriodDays) else "Novelty not assessed") + " | Experiment: ${result.experimentId}"
+                    " | " + (if (bls.isDetected) {
+                        val status = xilonRepository.compareCatalogPeriods(result.target.ticId, bls.bestPeriodDays)
+                        val comparisonId = mastSynchronization.archiveCatalogComparison(
+                            requireNotNull(result.experimentId), bls.bestPeriodDays, status)
+                        "$status | Comparison: $comparisonId"
+                    } else "Novelty not assessed") + " | Experiment: ${result.experimentId}"
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
