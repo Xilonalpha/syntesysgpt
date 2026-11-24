@@ -84,6 +84,34 @@ class MastDataSynchronizationService @Inject constructor(
             com.synthesis.engine.exoplanet.MultiSectorTimingValidation.SectorTimings(heldOutSector, held.sha256, heldTimings))
     }
 
+    data class ArchivedTimingAudit(val trainingSector: Int, val heldOutSector: Int,
+        val status: String, val eventCount: Int, val periodDays: Double?)
+
+    /** Bounded conditional follow-up of archived sectors, not independent discovery confirmation. */
+    suspend fun auditArchivedTiming(experimentId: String, maxChecks: Int = 3): List<ArchivedTimingAudit> =
+        withContext(Dispatchers.IO) {
+            require(maxChecks in 1..5)
+            val evidence = FitsEvidenceStore(java.io.File(context.filesDir, "fits_evidence"))
+            val manifest = ExperimentManifestStore(java.io.File(context.filesDir, "experiment_manifests"), evidence)
+                .readVerified(experimentId)
+            val sectors = manifest.sources.map { it.sector }.sorted()
+            val training = sectors.first()
+            sectors.drop(1).take(maxChecks).map { held ->
+                coroutineContext.ensureActive()
+                try {
+                    val result = validateArchivedSectors(experimentId, training, held)
+                    ArchivedTimingAudit(training, held,
+                        if (result.allCompatible) "CONDITIONAL_COMPATIBILITY" else "COMPATIBILITY_NOT_ESTABLISHED",
+                        result.comparisons.size, result.ephemeris.periodDays)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    android.util.Log.w("TimingAudit", "Archived sector assessment incomplete", e)
+                    ArchivedTimingAudit(training, held, "ASSESSMENT_INCOMPLETE", 0, null)
+                }
+            }
+        }
+
     /** Offline replay; no network requests and no claim of scientific confirmation. */
     suspend fun replayExperiment(id: String) = withContext(Dispatchers.IO) {
         val evidence = FitsEvidenceStore(java.io.File(context.filesDir, "fits_evidence"))
