@@ -27,7 +27,9 @@ import java.util.Locale
 class TessSurveyScannerWorker @AssistedInject constructor(
     @Assisted private val appContext: Context,
     @Assisted workerParams: WorkerParameters,
-    private val tessArchiveSurveyRepository: TessArchiveSurveyRepository
+    private val tessArchiveSurveyRepository: TessArchiveSurveyRepository,
+    private val xilonRepository: com.synthesis.data.repository.xilon.XilonRepository,
+    private val synchronization: com.synthesis.service.MastDataSynchronizationService
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
@@ -51,6 +53,20 @@ class TessSurveyScannerWorker @AssistedInject constructor(
                 unvettedNonToiPreferred = unvettedOnly,
                 scanBatchSize = batchSize
             )
+
+            // Independent evidence is archived by the research service, not counted as a confirmed discovery.
+            if (unvettedOnly) {
+                val page = prefs.getInt("independent_tic_page", 1).coerceAtLeast(1)
+                val signals = xilonRepository.runIndependentSurveyPage(
+                    maxTmag, page, batchSize.coerceIn(1, 10), synchronization
+                )
+                prefs.edit()
+                    .putInt("independent_tic_page", if (page == Int.MAX_VALUE) 1 else page + 1)
+                    .putLong(KEY_LAST_RUN_TIMESTAMP, System.currentTimeMillis())
+                    .putString(KEY_LAST_RUN_STATUS, "INDEPENDENT_PAGE_${page}: ${signals.size} archived signals; novelty unverified")
+                    .apply()
+                return@withContext Result.success()
+            }
 
             val batch = tessArchiveSurveyRepository.executeMeasuredSurveyBatch(criteria)
             val discoveries = batch.candidates
