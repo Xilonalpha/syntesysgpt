@@ -4,6 +4,7 @@ import hashlib
 import json
 import warnings
 from pathlib import Path
+from fits_integrity import verify_original
 
 
 
@@ -19,7 +20,8 @@ def validate_fits(path, tic):
     from astropy.io import fits
     with warnings.catch_warnings():
         warnings.simplefilter("error")
-        with fits.open(path, checksum=True) as hdus:
+        with fits.open(path, checksum=False) as hdus:
+            verify_original(path, hdus)
             hdus.verify("exception")
             header = hdus[0].header
             if int(header.get("TICID", -1)) != tic:
