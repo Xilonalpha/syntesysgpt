@@ -72,7 +72,7 @@ class MastDataSynchronizationServiceTest {
         periodicTransitAnalysisEngine = periodicEngine,
         bayesianUncertaintyEngine = bayesianEngine,
         stellarTemplateLibraryService = templateService,
-        context = android.test.mock.MockContext()
+        context = org.mockito.Mockito.mock(android.content.Context::class.java)
     )
 
     @Test
