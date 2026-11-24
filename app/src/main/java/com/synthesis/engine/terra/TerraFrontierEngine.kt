@@ -58,7 +58,8 @@ class TerraFrontierEngine @Inject constructor() {
      * and rapid North Magnetic Pole drift speed for a target year.
      */
     fun simulateGeomagneticDecayAndDrift(year: Int): GeomagneticAnomalousState {
-        val yearOffset = (year - 2026).coerceIn(-50, 50)
+        require(year in 1976..2076)
+        val yearOffset = year - 2026
         // Historical baseline: ~22.4 µT in 2026, decaying at ~0.8 µT per decade in SAA core
         val currentIntensity = (22.4 - (yearOffset * 0.08)).coerceAtLeast(14.0)
         val driftKmPerYear = (48.0 + (yearOffset * 0.3)).coerceIn(30.0, 75.0)
@@ -72,7 +73,7 @@ class TerraFrontierEngine @Inject constructor() {
         return GeomagneticAnomalousState(
             regionName = "Simulare ilustrativă SAA (nu observație ESA)",
             currentIntensityMicroTesla = (currentIntensity * 10.0).roundToInt() / 10.0,
-            intensityDecayRatePerDecadePercent = 7.5,
+            intensityDecayRatePerDecadePercent = 100.0 * 0.8 / currentIntensity,
             northMagneticDriftKmPerYear = (driftKmPerYear * 10.0).roundToInt() / 10.0,
             lowEarthOrbitRadiationRisk = "Nevalidat: simularea nu estimează doza de radiație",
             isSplittingIntoDoubleCore = false // Not assessed by this illustrative model
