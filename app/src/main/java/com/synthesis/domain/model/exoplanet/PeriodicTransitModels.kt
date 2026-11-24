@@ -95,5 +95,16 @@ data class PeriodicTransitDetectionResult(
     val binnedPhaseCurve: List<PhaseBinPoint>,
     val transitModelCurve: List<Pair<Double, Double>>, // List of (phase, modelFlux)
     val statusSummary: String,
-    val timestampMs: Long = System.currentTimeMillis()
+    val timestampMs: Long = System.currentTimeMillis(),
+    val residualNoise: ResidualNoiseDiagnostic? = null
+)
+
+/** Descriptive fitted-residual metrics; not a calibrated false alarm probability. */
+data class ResidualNoiseDiagnostic(
+    val lagOneCorrelation: Double,
+    val blockNoiseRatio: Double,
+    val adjacentPairs: Int,
+    val completeBlocks: Int,
+    val cadenceDays: Double,
+    val blockSize: Int
 )
