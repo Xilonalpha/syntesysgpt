@@ -24,7 +24,9 @@ class CorrelationEngine @Inject constructor(private val normalizer: DataNormaliz
             val du = u.map { it-mu }; val dv = v.map { it-mv }
             val denom = sqrt(du.sumOf { it*it }) * sqrt(dv.sumOf { it*it })
             if (!denom.isFinite() || denom <= 0) continue
-            val r = (du.indices.sumOf { du[it]*dv[it] } / denom).coerceIn(-1.0,1.0)
+            val rawR = du.indices.sumOf { du[it]*dv[it] } / denom
+            if (!rawR.isFinite()) continue
+            val r = rawR.coerceIn(-1.0,1.0)
             if (!r.isFinite()) continue
             result.add(Correlation(java.util.UUID.randomUUID().toString(), investigationId,
                 a.first().sourceName, b.first().sourceName, CorrelationType.STATISTICAL, abs(r).toFloat(),
