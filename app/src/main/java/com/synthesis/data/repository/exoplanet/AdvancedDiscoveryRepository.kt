@@ -90,4 +90,6 @@ class AdvancedDiscoveryRepository @Inject constructor(
             biosignatureEngine.evaluateMeasuredAsymmetry(ingressHours, egressHours,
                 ingressErrorHours, egressErrorHours, correlation)
         }
+    suspend fun evaluatePressureBalance(field: Double, density: Double, speed: Double): MagnetopauseEstimate =
+        withContext(Dispatchers.Default) { spaceWeatherEngine.evaluateMeasuredPressureBalance(field, density, speed) }
 }
