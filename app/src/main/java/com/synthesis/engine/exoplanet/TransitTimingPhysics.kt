@@ -12,6 +12,32 @@ data class LinearEphemeris(val referenceCycle: Int, val epochDays: Double, val p
  * Fits a constant period; excess residuals do not establish a companion.
  */
 object TransitTimingPhysics {
+    data class SectorEpoch(val sector: Int, val epochBjd: Double, val errorDays: Double, val productSha256: String)
+    data class PhaseComparison(val cycle: Long, val residualDays: Double, val uncertaintyDays: Double,
+        val compatible: Boolean, val cycleUnambiguous: Boolean)
+
+    /** Conditional constant-period comparison; caller establishes same target, BJD_TDB
+     * time scale and independent acquisition. No planet confirmation is implied. */
+    fun compareSectors(first: SectorEpoch, second: SectorEpoch, periodDays: Double,
+        periodErrorDays: Double): PhaseComparison {
+        require(first.sector > 0 && second.sector > 0 && first.sector != second.sector)
+        require(listOf(first, second).all { it.epochBjd.isFinite() && it.epochBjd > 2400000 &&
+            it.errorDays.isFinite() && it.errorDays > 0 && it.productSha256.matches(Regex("[0-9a-fA-F]{64}")) })
+        require(!first.productSha256.equals(second.productSha256, ignoreCase = true))
+        require(periodDays.isFinite() && periodDays > 0 && periodErrorDays.isFinite() && periodErrorDays > 0)
+        val delta = second.epochBjd - first.epochBjd
+        val cycles = delta / periodDays
+        require(cycles.isFinite() && kotlin.math.abs(cycles) < 1e9 && kotlin.math.abs(cycles) >= 0.5)
+        val cycle = kotlin.math.round(cycles).toLong()
+        val residual = delta - cycle * periodDays
+        val uncertainty = kotlin.math.hypot(kotlin.math.hypot(first.errorDays, second.errorDays),
+            cycle.toDouble() * periodErrorDays)
+        require(uncertainty.isFinite() && uncertainty > 0)
+        val unambiguous = kotlin.math.abs(residual) + 3 * uncertainty < periodDays / 2
+        return PhaseComparison(cycle, residual, uncertainty,
+            unambiguous && kotlin.math.abs(residual) <= 3 * uncertainty, unambiguous)
+    }
+
     fun fit(observations: List<TransitTiming>): LinearEphemeris {
         require(observations.size >= 3)
         val p = observations.sortedBy { it.cycle }
