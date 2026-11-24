@@ -10,6 +10,10 @@ on:
         description: Experimental robust local cubic detrending
         type: boolean
         default: false
+      multisector:
+        description: Select two or three consecutive TESS sectors
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -96,9 +100,21 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p evidence
-          python scripts/download_tess.py --tic "$TIC" --output evidence/mast 2>&1 | tee evidence/download.log
-          FITS=$(find evidence/mast -name '*_lc.fits' -type f)
-          python scripts/prepare_tess.py "$FITS" evidence/observations.csv --tic "$TIC"
+          if [[ "${{ inputs.multisector }}" == "true" ]]; then
+            python scripts/download_tess.py --tic "$TIC" --output evidence/available --list-sectors
+            SELECTED=$(python scripts/select_tess_sectors.py evidence/available/available_sectors.json evidence/sector_selection.json)
+            for SECTOR in $SELECTED; do
+              python scripts/download_tess.py --tic "$TIC" --sector "$SECTOR" --output "evidence/mast/$SECTOR" 2>&1 | tee "evidence/download-$SECTOR.log"
+            done
+            mapfile -d '' SOURCES < <(find evidence/mast -type f -name '*_lc.fits' -print0 | sort -z)
+            [[ ${#SOURCES[@]} -ge 2 && ${#SOURCES[@]} -le 3 ]]
+            python scripts/prepare_tess_multisector.py --tic "$TIC" --output evidence/observations.csv "${SOURCES[@]}"
+            FITS=evidence/mast
+          else
+            python scripts/download_tess.py --tic "$TIC" --output evidence/mast 2>&1 | tee evidence/download.log
+            FITS=$(find evidence/mast -name '*_lc.fits' -type f)
+            python scripts/prepare_tess.py "$FITS" evidence/observations.csv --tic "$TIC"
+          fi
           mapfile -t STELLAR < <(python -c 'import json,math; r=json.load(open("evidence/catalog_reference.json")); assert r["status"]=="PASS"; row=r["catalog_rows"][0]; print("\n".join(str(v) if isinstance(v,(int,float)) and math.isfinite(v) and v>0 else "NaN" for v in (row.get("st_rad"),row.get("st_mass"),row.get("st_teff"))))')
           [[ ${#STELLAR[@]} == 3 ]]
           export XILON_DETREND=0
