@@ -84,8 +84,8 @@ import com.synthesis.data.local.entity.XilonDiscoveryEntity
 import com.synthesis.data.service.gemini.GeminiAnalysisResult
 import com.synthesis.domain.model.xilon.*
 import com.synthesis.ui.theme.*
-import com.synthesis.viewmodel.xilon.XilonAiChatMessage
-import com.synthesis.viewmodel.xilon.XilonUiState
+import com.synthesis.domain.model.xilon.XilonAiChatMessage
+import com.synthesis.domain.model.xilon.XilonUiState
 import com.synthesis.viewmodel.xilon.XilonViewModel
 import kotlin.math.roundToInt
 import kotlin.math.abs
