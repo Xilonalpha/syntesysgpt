@@ -86,6 +86,9 @@ class TessSurveyScannerWorker @AssistedInject constructor(
                         addProperty("experiment_id", experiment)
                         addProperty("tic", tic)
                         addProperty("period_days", d.bestPeriodDays)
+                        addProperty("epoch_bjd", d.epochBjd)
+                        addProperty("phase_validation", "NOT_ASSESSED_NO_TIMING_UNCERTAINTY")
+                        add("product_provenance", com.google.gson.Gson().toJsonTree(observation.products))
                         addProperty("depth_ppm", d.transitDepthPpm)
                         addProperty("snr", d.transitSnr)
                         addProperty("catalog_status", comparison)
@@ -136,6 +139,7 @@ class TessSurveyScannerWorker @AssistedInject constructor(
                             val extraPayload = payload.deepCopy().apply {
                                 addProperty("additional_signal_id", signalId)
                                 addProperty("period_days", extra.bestPeriodDays)
+                                addProperty("epoch_bjd", extra.epochBjd)
                                 addProperty("depth_ppm", extra.transitDepthPpm)
                                 addProperty("duration_hours", extra.transitDurationHours)
                                 addProperty("snr", extra.transitSnr)
