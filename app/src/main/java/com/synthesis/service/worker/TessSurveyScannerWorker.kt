@@ -82,12 +82,30 @@ class TessSurveyScannerWorker @AssistedInject constructor(
                         d.transitDurationHours >= d.bestPeriodDays * 24.0) return@runIndependentSurveyPage
                     val radius = star.radiusSun
                     if (dwarfOnly && (radius == null || !radius.isFinite() || radius <= 0.0 || radius > 1.35)) return@runIndependentSurveyPage
+                    val sectors = observation.products.map { it.sector }.distinct().sorted()
+                    var phaseStatus = "NOT_ASSESSED_INSUFFICIENT_SECTORS"
+                    var phaseEvidence: com.google.gson.JsonElement? = null
+                    if (sectors.size >= 2) {
+                        try {
+                            val check = synchronization.validateArchivedSectors(experiment, sectors.first(), sectors.last())
+                            val samePeriod = kotlin.math.abs(check.ephemeris.periodDays - d.bestPeriodDays) / d.bestPeriodDays <= 0.01
+                            phaseStatus = if (check.allCompatible && samePeriod) "CONDITIONAL_TIMING_COMPATIBILITY"
+                                else "COMPATIBILITY_NOT_ESTABLISHED"
+                            phaseEvidence = com.google.gson.Gson().toJsonTree(check)
+                        } catch (e: kotlinx.coroutines.CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            phaseStatus = "ASSESSMENT_INCOMPLETE"
+                            android.util.Log.w("TessSurveyScanner", "Multisector assessment incomplete", e)
+                        }
+                    }
                     val payload = com.google.gson.JsonObject().apply {
                         addProperty("experiment_id", experiment)
                         addProperty("tic", tic)
                         addProperty("period_days", d.bestPeriodDays)
                         addProperty("epoch_bjd", d.epochBjd)
-                        addProperty("phase_validation", "NOT_ASSESSED_NO_TIMING_UNCERTAINTY")
+                        addProperty("phase_validation", phaseStatus)
+                        phaseEvidence?.let { add("phase_evidence", it) }
                         add("product_provenance", com.google.gson.Gson().toJsonTree(observation.products))
                         addProperty("depth_ppm", d.transitDepthPpm)
                         addProperty("snr", d.transitSnr)
@@ -143,6 +161,8 @@ class TessSurveyScannerWorker @AssistedInject constructor(
                                 extra.vetting.isOddEvenConsistent && extra.vetting.isDurationPhysical
                             val extraPayload = payload.deepCopy().apply {
                                 addProperty("additional_signal_id", signalId)
+                                remove("phase_evidence")
+                                addProperty("phase_validation", "NOT_ASSESSED_ADDITIONAL_SIGNAL")
                                 addProperty("period_days", extra.bestPeriodDays)
                                 addProperty("epoch_bjd", extra.epochBjd)
                                 addProperty("depth_ppm", extra.transitDepthPpm)
