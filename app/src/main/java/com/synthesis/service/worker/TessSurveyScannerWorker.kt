@@ -99,7 +99,13 @@ class TessSurveyScannerWorker @AssistedInject constructor(
                             android.util.Log.w("TessSurveyScanner", "Multisector assessment incomplete", e)
                         }
                     }
+                    val timingAudit = if (sectors.size >= 2) {
+                        try { synchronization.followUpArchivedTiming(experiment, d.bestPeriodDays, 2) }
+                        catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                        catch (e: Exception) { null }
+                    } else null
                     val payload = com.google.gson.JsonObject().apply {
+                        timingAudit?.let { add("timing_audit", com.google.gson.Gson().toJsonTree(it)) }
                         addProperty("experiment_id", experiment)
                         addProperty("tic", tic)
                         addProperty("period_days", d.bestPeriodDays)
@@ -162,6 +168,7 @@ class TessSurveyScannerWorker @AssistedInject constructor(
                             val extraPayload = payload.deepCopy().apply {
                                 addProperty("additional_signal_id", signalId)
                                 remove("phase_evidence")
+                            remove("timing_audit")
                                 addProperty("phase_validation", "NOT_ASSESSED_ADDITIONAL_SIGNAL")
                                 addProperty("period_days", extra.bestPeriodDays)
                                 addProperty("epoch_bjd", extra.epochBjd)
