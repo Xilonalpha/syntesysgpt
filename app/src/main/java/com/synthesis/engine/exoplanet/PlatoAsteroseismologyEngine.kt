@@ -18,6 +18,15 @@ import kotlin.math.sqrt
 @Singleton
 class PlatoAsteroseismologyEngine @Inject constructor() {
 
+    /** First-order independent measurement errors; excludes scaling-relation systematics. */
+    data class FractionalErrors(val mass: Double, val radius: Double, val density: Double, val planetRadius: Double)
+    fun propagateFractionalErrors(nuMax: Double, deltaNu: Double, temperature: Double, depth: Double): FractionalErrors {
+        require(listOf(nuMax, deltaNu, temperature, depth).all { it.isFinite() && it >= 0 && it <= 0.1 })
+        val mass = sqrt(9*nuMax*nuMax + 16*deltaNu*deltaNu + 2.25*temperature*temperature)
+        val radius = sqrt(nuMax*nuMax + 4*deltaNu*deltaNu + 0.25*temperature*temperature)
+        return FractionalErrors(mass, radius, 2*deltaNu, kotlin.math.hypot(radius, depth/2))
+    }
+
     companion object {
         // Solar benchmark asteroseismic values (Huber et al.)
         const val NU_MAX_SUN = 3090.0 // microHz
