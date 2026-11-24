@@ -117,4 +117,10 @@ class JwstTransmissionSpectroscopyEngine @Inject constructor() {
         val exponent = (c2 / (wl * tK)).coerceIn(0.1, 50.0)
         return (c1 / (wl.pow(5) * (exp(exponent) - 1.0))).coerceAtLeast(1e-10)
     }
+
+    /** Caller-supplied spectral bins; provenance is not established by this calculation. */
+    fun evaluateMeasuredContrast(bins: List<MeasuredSpectralBin>,
+        feature: ClosedFloatingPointRange<Double>,
+        continuum: ClosedFloatingPointRange<Double>): SpectralContrast =
+        SpectralContrastPhysics.evaluate(bins, feature, continuum)
 }
