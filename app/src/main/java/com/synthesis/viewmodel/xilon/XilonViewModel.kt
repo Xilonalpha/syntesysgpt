@@ -250,7 +250,7 @@ class XilonViewModel @Inject constructor(
             _isAnalyzingWithGemini.value = false
 
             if (_chatMessages.value.isEmpty()) {
-                val rEarth = detection.derivedPlanetRadiusEarth ?: 1.0
+                val rEarth = detection.derivedPlanetRadiusEarth?.toString() ?: "necunoscută"
                 val modelName = activeGeminiModel.value
                 _chatMessages.value = listOf(
                     XilonAiChatMessage(
@@ -269,8 +269,8 @@ class XilonViewModel @Inject constructor(
 
         val current = _uiState.value
         val contextSummary = if (current is XilonUiState.Success) {
-            val rEarth = current.result.derivedPlanetRadiusEarth ?: 1.0
-            val teq = current.result.derivedEquilibriumTempK ?: 300.0
+            val rEarth = current.result.derivedPlanetRadiusEarth?.toString() ?: "necunoscută"
+            val teq = current.result.derivedEquilibriumTempK?.toString() ?: "necunoscută"
             "Stea: TIC ${current.result.star.ticId}, Perioada: ${current.result.orbitalPeriodDays} zile, Rază planetă: $rEarth R_Earth, Teq: $teq K, SNR: ${current.result.signalToNoiseRatio}"
         } else {
             "Context exoplanete general."
