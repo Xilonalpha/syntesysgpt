@@ -343,6 +343,12 @@ class XilonViewModel @Inject constructor(
                             "; exploratory, FAP uncalibrated"
                     } ?: " | Residual noise diagnostic unavailable") +
                     " | Products: ${result.products.size}; independent confirmation required"
+                val plan = com.synthesis.engine.discovery.PlanetResearchPlanner.plan(
+                            com.synthesis.engine.discovery.PlanetResearchPlanner.Input(
+                                result.products.size, result.products.map { it.sector }.distinct().size, bls.isDetected,
+                                false, false, !bls.vetting.isSecondaryEclipseDetected && bls.vetting.isOddEvenConsistent &&
+                                bls.vetting.isDurationPhysical, false, false)).joinToString { it.name }
+                _independentStatus.value += " | Follow-up plan (conservative): $plan"
                 val sectors = result.products.map { it.sector }.distinct().sorted()
                 if (bls.isDetected && sectors.size >= 2) {
                     _independentStatus.value += " | Checking held-out sector..."
@@ -352,14 +358,6 @@ class XilonViewModel @Inject constructor(
                         val reportHash = mastSynchronization.persistTimingReport(audit)
                         _independentStatus.value += " | Report SHA-256: $reportHash"
                         _independentStatus.value += " | Follow-up: ${audit.matchingChecks}/${audit.checks.size} compatible; ${audit.status}"
-                        val check = mastSynchronization.validateArchivedSectors(
-                            requireNotNull(result.experimentId), sectors.first(), sectors.last())
-                        val samePeriod = kotlin.math.abs(check.ephemeris.periodDays - bls.bestPeriodDays) /
-                            bls.bestPeriodDays <= 0.01
-                        _independentStatus.value += " | Sectors ${check.trainingSector}/${check.heldOutSector}: " +
-                            (if (check.allCompatible && samePeriod) "conditional timing compatibility"
-                            else "timing or period compatibility not established") +
-                            "; ${check.comparisons.size} measured events; not a planet confirmation"
                     } catch (e: kotlinx.coroutines.CancellationException) {
                         throw e
                     } catch (e: Exception) {
