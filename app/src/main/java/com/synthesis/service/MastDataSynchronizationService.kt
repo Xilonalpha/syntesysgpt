@@ -52,6 +52,7 @@ class MastDataSynchronizationService @Inject constructor(
                 doc.header.getInt("SECTOR"), doc.extractLightCurve().orEmpty())
         }
         val detection = periodicTransitAnalysisEngine.analyzeDataPoints(points)
+        require(detection.periodogram.isNotEmpty() && detection.bestPeriodDays.isFinite() && detection.bestPeriodDays > 0) { "Replay incomplete; no negative evidence can be inferred" }
         ExperimentResultStore(java.io.File(context.filesDir, "experiment_results"), manifests).save(id, ExperimentResultStore.metrics(detection))
         detection
     }
