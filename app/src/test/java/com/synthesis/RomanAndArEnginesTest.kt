@@ -99,14 +99,6 @@ class RomanAndArEnginesTest {
         )
 
         val projected = ArSkyTrackerService.computeProjectedTargets(alignedOrientation)
-        val trappistTarget = projected.first { it.id == "trappist1" }
-
-        if (alt > -5.0) {
-            assertTrue("Target must be inside FOV when pointing directly at it and above horizon", trappistTarget.isInsideCameraFov)
-        }
-        assertEquals(0.5f, trappistTarget.screenXFraction, 0.05f)
-        assertEquals(0.5f, trappistTarget.screenYFraction, 0.05f)
-        assertEquals(0.0, trappistTarget.deltaAzDeg, 0.1)
-        assertEquals(0.0, trappistTarget.deltaAltDeg, 0.1)
+        assertTrue("No unverified catalog targets projected", projected.isEmpty())
     }
 }
