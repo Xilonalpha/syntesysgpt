@@ -45,6 +45,8 @@ class JwstTransmissionSpectroscopyEngine @Inject constructor() {
         kMagnitude: Double = 9.0,
         hasPhotochemicalSo2: Boolean = false
     ): JwstTransmissionSpectrumResult {
+        require(listOf(planetRadiusEarth, planetMassEarth, stellarRadiusSun, equilibriumTempK, stellarTeffK).all { it.isFinite() && it > 0 })
+        require(jMagnitude.isFinite() && kMagnitude.isFinite())
         // Physical surface gravity g (m/s^2)
         val mPlanetKg = planetMassEarth * M_EARTH_KG
         val rPlanetM = planetRadiusEarth * R_EARTH_M
@@ -85,76 +87,9 @@ class JwstTransmissionSpectroscopyEngine @Inject constructor() {
         val b75Star = planckFunction75(stellarTeffK)
         val esm = 4.29e6 * (b75Planet / b75Star) * (rPlanetM / rStarM).pow(2) * 10.0.pow(-kMagnitude / 5.0)
 
-        val jwstPriority = when {
-            tsm >= 80.0 -> "★ TIER 1 (JWST Cycle 4/5 Golden Target - S/N > 10 in 1 transit)"
-            tsm >= 40.0 -> "TIER 2 (High-Priority Target - Clear atmospheric detections in 2-3 transits)"
-            tsm >= 15.0 -> "MODERATE (Requires 4-8 transits or MIRI phase curves)"
-            else -> "LOW (Dense cloud deck or faint host star; requires stacked JWST visits)"
-        }
-
-        // Generate wavelength grid across NIRSpec (0.6 - 5.0 um) & MIRI (5.0 - 12.0 um)
-        val wavelengths = doubleArrayOf(
-            0.8, 1.1, 1.25, 1.4, 1.65, 1.9, 2.1, 2.3, 2.7, 3.0, 3.3, 3.8,
-            4.05, 4.3, 4.67, 5.0, 6.3, 7.7, 8.5, 9.5, 10.5, 12.0
-        )
-
-        val detectedFeatures = mutableListOf<String>()
-        val spectrumPoints = mutableListOf<SpectralBandPoint>()
-
-        for (wl in wavelengths) {
-            var nHeights = 3.0 // Base absorption continuum (Rayleigh + collision-induced)
-            var absorbingMol: String? = null
-
-            // Molecular cross-section peaks
-            when {
-                // H2O absorption bands
-                absDiff(wl, 1.4) < 0.1 || absDiff(wl, 1.9) < 0.1 || absDiff(wl, 2.7) < 0.15 || absDiff(wl, 6.3) < 0.3 -> {
-                    nHeights += 3.8
-                    absorbingMol = "H2O (Vapori de Apă)"
-                    if (!detectedFeatures.contains("H2O")) detectedFeatures.add("H2O")
-                }
-                // CO2 fundamental asymmetric stretch (4.3 um) & overtone (2.7 um)
-                absDiff(wl, 4.3) < 0.15 || absDiff(wl, 2.7) < 0.1 -> {
-                    nHeights += 5.5
-                    absorbingMol = "CO2 (Dioxid de Carbon)"
-                    if (!detectedFeatures.contains("CO2")) detectedFeatures.add("CO2")
-                }
-                // SO2 Photochemical peak at 4.05 um (WASP-39 b JWST flagship discovery)
-                hasPhotochemicalSo2 && absDiff(wl, 4.05) < 0.08 -> {
-                    nHeights += 4.2
-                    absorbingMol = "SO2 (Fotochimie UV Activă)"
-                    if (!detectedFeatures.contains("SO2")) detectedFeatures.add("SO2")
-                }
-                // CH4 methane features
-                absDiff(wl, 2.3) < 0.1 || absDiff(wl, 3.3) < 0.15 || absDiff(wl, 7.7) < 0.3 -> {
-                    nHeights += 3.5
-                    absorbingMol = "CH4 (Metan)"
-                    if (!detectedFeatures.contains("CH4")) detectedFeatures.add("CH4")
-                }
-                // CO carbon monoxide
-                absDiff(wl, 4.67) < 0.1 -> {
-                    nHeights += 2.6
-                    absorbingMol = "CO (Monoxid de Carbon)"
-                    if (!detectedFeatures.contains("CO")) detectedFeatures.add("CO")
-                }
-            }
-
-            val depth = baselineDepthPpm + (nHeights * deltaDepthPerScaleHeightPpm)
-            val instError = (8.0 + (wl * 1.5)).coerceAtLeast(6.0) // JWST NIRSpec/MIRI instrument noise floor ~ 10 ppm
-
-            spectrumPoints.add(
-                SpectralBandPoint(
-                    wavelengthMicrons = wl,
-                    transitDepthPpm = depth,
-                    absorbingMolecule = absorbingMol,
-                    instrumentalErrorPpm = instError
-                )
-            )
-        }
-
-        val summary = "SIMULARE, nu observație JWST: H = ${String.format("%.1f", scaleHeightKm)} km, " +
-                "TSM = ${String.format("%.1f", tsm)}, ESM = ${String.format("%.1f", esm)}. " +
-                "Benzi introduse în model: ${detectedFeatures.joinToString(", ")}."
+        require(listOf(gSurface, scaleHeightKm, tsm, esm).all { it.isFinite() && it > 0 })
+        val jwstPriority = "Metrici orientative; fezabilitatea necesită model instrumental și observații."
+        val summary = "Estimare teoretică, nu observație JWST. Masa moleculară este presupusă; nicio moleculă identificată."
 
         return JwstTransmissionSpectrumResult(
             planetName = planetName,
@@ -166,7 +101,7 @@ class JwstTransmissionSpectroscopyEngine @Inject constructor() {
             emissionSpectroscopyMetric = esm,
             jwstFollowUpPriority = jwstPriority,
             detectedAbsorptionFeatures = emptyList(),
-            spectrumPoints = spectrumPoints,
+            spectrumPoints = emptyList(),
             photochemistryDetected = false,
             atmosphericSummary = summary
         )
