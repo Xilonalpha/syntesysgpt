@@ -97,7 +97,15 @@ data class PeriodicTransitDetectionResult(
     val statusSummary: String,
     val timestampMs: Long = System.currentTimeMillis(),
     val residualNoise: ResidualNoiseDiagnostic? = null
-)
+) {
+    /** Exploratory block-noise adjustment, not a calibrated detection statistic. */
+    val blockAdjustedSnr: Double?
+        get() {
+            val beta = residualNoise?.blockNoiseRatio ?: return null
+            if (!beta.isFinite() || beta < 0 || !transitSnr.isFinite() || transitSnr < 0) return null
+            return transitSnr / maxOf(1.0, beta)
+        }
+}
 
 /** Descriptive fitted-residual metrics; not a calibrated false alarm probability. */
 data class ResidualNoiseDiagnostic(
