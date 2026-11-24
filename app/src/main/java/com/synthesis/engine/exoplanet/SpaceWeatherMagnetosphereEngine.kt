@@ -8,17 +8,7 @@ import kotlin.math.PI
 import kotlin.math.pow
 import kotlin.math.sqrt
 
-/**
- * Space Weather & Magnetospheric Shielding Engine (2026 Edition)
- *
- * Evaluates whether terrestrial exoplanets orbiting active M-dwarf stars
- * retain their atmospheres or get stripped by stellar CMEs and UV flares.
- *
- * Implements:
- * 1. Christensen et al. (2009, Nature 457:167) convective core dynamo scaling relations.
- * 2. Magnetopause standoff radius under stellar wind ram pressure (Vidotto et al. 2013).
- * 3. Owen & Wu (2013, ApJ 775:105) energy-limited XUV atmospheric photoevaporation.
- */
+/** Conditional magnetopause estimates; atmospheric retention is not inferred. */
 @Singleton
 class SpaceWeatherMagnetosphereEngine @Inject constructor() {
 
@@ -33,7 +23,7 @@ class SpaceWeatherMagnetosphereEngine @Inject constructor() {
     }
 
     /**
-     * Solves planetary magnetosphere standoff radius and atmospheric stripping rate.
+     * Legacy API blocked: no measured magnetic field or atmospheric escape model.
      */
     fun evaluateMagnetosphereAndShielding(
         planetName: String,
@@ -49,4 +39,7 @@ class SpaceWeatherMagnetosphereEngine @Inject constructor() {
     ): MagnetosphereShieldingResult {
         throw UnsupportedOperationException("Scientific analysis unavailable: observational validation required")
     }
+    fun evaluateMeasuredPressureBalance(equatorialFieldTesla: Double,
+        protonDensityCm3: Double, windSpeedKms: Double): MagnetopauseEstimate =
+        MagnetopausePhysics.evaluate(equatorialFieldTesla, protonDensityCm3, windSpeedKms)
 }
