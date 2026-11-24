@@ -49,7 +49,10 @@ class PureTicCatalogRepository @Inject constructor(
                     ?: throw IllegalArgumentException("Missing metadata: $key")
                 val tic = string("tic")
                 val experiment = string("experiment_id")
-                require(tic.matches(Regex("[0-9]+")) && row.id == "independent-tess:$experiment")
+                require(tic.matches(Regex("[0-9]+")))
+                val additional = j.get("additional_signal_id")?.asString
+                require(if (additional == null) row.id == "independent-tess:$experiment"
+                    else additional.matches(Regex("[0-9a-f-]{36}")) && row.id == "independent-tess:$experiment:$additional")
                 require(string("catalog_status") == "NO_PERIOD_MATCH_IN_QUERIED_TABLES; NOVELTY_UNVERIFIED")
                 require(string("vetting_status") == "PRELIMINARY_SCREEN_PASSED")
                 val evidence = string("comparison_evidence")
@@ -63,7 +66,7 @@ class PureTicCatalogRepository @Inject constructor(
                     transitDurationHours = number("duration_hours"), transitDepthPpm = depth,
                     stellarTeffK = number("stellar_teff"), stellarRadiusSun = number("stellar_radius"),
                     stellarMassSun = number("stellar_mass"), distancePc = number("distance_pc"),
-                    discoveryOrigin = "Analiza fotometrica TESS independenta",
+                    discoveryOrigin = if (additional == null) "Analiza fotometrica TESS independenta" else "Cautare BLS suplimentara pe aceleasi observatii",
                     whyNoToi = "Fara potrivire de perioada in tabelele interogate; noutate neconfirmata",
                     potentialPlanetaryType = "Semnal de tranzit nevalidat",
                     scientificNotes = "Experiment: $experiment; comparatie: $evidence; filtrare preliminara trecuta, validare independenta necesara",
