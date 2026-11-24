@@ -77,17 +77,9 @@ class FitsImageAndBillingTest {
     fun testTessCoverageWindowsAndDownlinkGaps() {
         println("=== TEST: TESS MISSION TIMELINE & SECTOR WINDOWS ===")
         val windows = stitcherEngine.getSectorCoverageWindows("Sector 1")
-        assertEquals("Sector must have 2 orbital coverage windows separated by perigee", 2, windows.size)
-
-        val orb1 = windows[0]
-        val orb2 = windows[1]
-
-        // Orbit 1 end to Orbit 2 start must equal perigee downlink gap
-        val downlinkGap = orb2.first - orb1.second
-        assertEquals("Downlink gap must be 1.25 days", 1.25, downlinkGap, 0.05)
-
-        // Stitching candidate with authentic active coverage
-        val stitched = stitcherEngine.stitchHarmonics(
+        assertTrue("No fabricated coverage", windows.isEmpty())
+        try {
+        stitcherEngine.stitchHarmonics(
             candidateName = "TOI-2076.03",
             ticId = "TIC 27491137",
             epoch1Btjd = 1330.0,
@@ -99,9 +91,9 @@ class FitsImageAndBillingTest {
             stellarTeffK = 5100.0
         )
 
-        assertNotNull(stitched)
-        assertTrue("Candidate must have candidate harmonics", stitched.candidateHarmonics.isNotEmpty())
-        assertTrue("Solution confidence must be high", stitched.solutionConfidence > 50.0)
+            fail("Unverified coverage must not yield a stitched orbit")
+        } catch (expected: UnsupportedOperationException) { }
+
     }
 
     @Test
