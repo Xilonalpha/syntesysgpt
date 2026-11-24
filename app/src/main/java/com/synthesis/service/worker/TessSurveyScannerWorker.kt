@@ -59,6 +59,7 @@ class TessSurveyScannerWorker @AssistedInject constructor(
             // Independent evidence is archived by the research service, not counted as a confirmed discovery.
             if (unvettedOnly) {
                 val page = prefs.getInt("independent_tic_page", 1).coerceAtLeast(1)
+                val shortlisted = mutableListOf<String>()
                 val signals = xilonRepository.runIndependentSurveyPage(
                     maxTmag, page, batchSize.coerceIn(1, 10), synchronization
                 ) { observation, comparison, comparisonEvidence ->
@@ -106,7 +107,12 @@ class TessSurveyScannerWorker @AssistedInject constructor(
                         sourceCount = observation.products.size,
                         isVerified = false
                     ))
+                    if (comparison == "NO_PERIOD_MATCH_IN_QUERIED_TABLES; NOVELTY_UNVERIFIED" &&
+                        !d.vetting.isSecondaryEclipseDetected && d.vetting.isOddEvenConsistent && d.vetting.isDurationPhysical) {
+                        shortlisted.add(tic)
+                    }
                 }
+                if (shortlisted.isNotEmpty()) postIndependentAlert(shortlisted.distinct())
                 prefs.edit()
                     .putInt("independent_tic_page", if (page == Int.MAX_VALUE) 1 else page + 1)
                     .putLong(KEY_LAST_RUN_TIMESTAMP, System.currentTimeMillis())
@@ -158,6 +164,23 @@ class TessSurveyScannerWorker @AssistedInject constructor(
 
             if (runAttemptCount < 3) Result.retry() else Result.failure()
         }
+    }
+
+    private fun postIndependentAlert(tics: List<String>) {
+        ensureNotificationChannelExists()
+        val intent = Intent(appContext, MainActivity::class.java).apply {
+            putExtra("target_tic_id", tics.first())
+            putExtra("open_screen", "xilon")
+        }
+        val pending = PendingIntent.getActivity(appContext, NOTIFICATION_ID + 1, intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        val notification = NotificationCompat.Builder(appContext, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle("TESS: candidat independent neconfirmat")
+            .setContentText("TIC ${tics.first()}; ${tics.size} tinte pentru verificare. Noutate neconfirmata.")
+            .setContentIntent(pending).setAutoCancel(true).build()
+        try { NotificationManagerCompat.from(appContext).notify(NOTIFICATION_ID + 1, notification) }
+        catch (e: SecurityException) { Log.w(TAG, "Notification permission missing", e) }
     }
 
     private fun postTransitAlertNotification(discoveries: List<TessSurveyDiscovery>) {
