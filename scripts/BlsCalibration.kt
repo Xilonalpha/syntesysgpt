@@ -12,7 +12,7 @@ fun main(args: Array<String>) {
     require(rho.isFinite() && rho in 0.0..0.99)
     val engine = PeriodicTransitAnalysisEngine(BayesianUncertaintyEngine())
     val rng = Random(seed)
-    println("kind,trial,depth_ppm,injected_period,recovered_period,accepted,recovered")
+    println("kind,trial,depth_ppm,injected_period,recovered_period,accepted,recovered,rho1,beta,raw_snr,adjusted_snr")
     for (depth in if (nullOnly) listOf(0.0) else listOf(0.0, 300.0, 600.0, 1500.0, 5000.0)) {
         var accepted = 0
         var recovered = 0
@@ -33,7 +33,7 @@ fun main(args: Array<String>) {
             val hit = depth > 0 && r.isDetected && abs(r.bestPeriodDays / period - 1) < 0.02
             if (r.isDetected) accepted++
             if (hit) recovered++
-            println("${if(depth == 0.0) "null" else "injection"},$trial,$depth,${if(depth == 0.0) "" else period},${r.bestPeriodDays},${r.isDetected},$hit")
+            println("${if(depth == 0.0) "null" else "injection"},$trial,$depth,${if(depth == 0.0) "" else period},${r.bestPeriodDays},${r.isDetected},$hit,${r.residualNoise?.lagOneCorrelation ?: ""},${r.residualNoise?.blockNoiseRatio ?: ""},${r.transitSnr},${r.blockAdjustedSnr ?: ""}")
         }
         System.err.println("depth_ppm=$depth trials=$trials accepted=$accepted recovered=$recovered")
     }
