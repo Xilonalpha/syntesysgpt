@@ -59,11 +59,13 @@ class RomanAndArEnginesTest {
     fun testRomanColdJupiterBinaryCausticLightCurve() {
         val event = syntheticEvent(true)
         val result = romanEngine.invertMicrolensingEvent(event)
-        val expected = Math.pow(6.5 * 34.0 / 365.25, 2.0) / (8.144 * 0.125) * 0.001 * 333000.0
+        val expected = Math.pow(6.5 * 34.0 / 365.25, 2.0) / (8.144 * 0.125) * (0.001 / 1.001) * 333000.0
         assertEquals(expected, result.inferredMassEarth, 0.0051)
         assertFalse(result.isFreeFloating)
         assertEquals(101, result.lightCurve.size)
         assertTrue(result.astrophysicalSummary.contains("no planet confirmation or binary-lens fit"))
+        assertTrue(result.lightCurve.all { !it.isCausticCrossing && it.planetaryAnomalyDeltaA == 0.0 })
+        assertTrue(result.lightCurve.zipWithNext().all { (a, b) -> b.timeDays > a.timeDays })
     }
 
     @Test(expected = IllegalArgumentException::class)
