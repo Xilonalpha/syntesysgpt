@@ -10,6 +10,17 @@ import kotlin.math.*
 @Singleton
 class RomanMicrolensingEngine @Inject constructor() {
 
+    /** Mass from measured angular Einstein radius and microlensing parallax.
+     * Independent Gaussian errors; first-order propagation. */
+    data class MeasuredMass(val solarMass: Double, val standardErrorSolar: Double)
+    fun measuredLensMass(thetaMas: Double, thetaErrorMas: Double, parallax: Double, parallaxError: Double): MeasuredMass {
+        require(listOf(thetaMas, thetaErrorMas, parallax, parallaxError).all { it.isFinite() && it > 0 })
+        val mass = thetaMas / (8.144 * parallax)
+        val error = mass * hypot(thetaErrorMas / thetaMas, parallaxError / parallax)
+        require(mass.isFinite() && mass > 0 && error.isFinite() && error > 0)
+        return MeasuredMass(mass, error)
+    }
+
     fun getBenchmarkEvents(): List<MicrolensingEvent> {
         // Legacy examples lack verified observational provenance.
         return emptyList()
