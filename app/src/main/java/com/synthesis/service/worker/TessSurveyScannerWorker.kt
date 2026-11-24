@@ -52,23 +52,24 @@ class TessSurveyScannerWorker @AssistedInject constructor(
                 scanBatchSize = batchSize
             )
 
-            val discoveries = tessArchiveSurveyRepository.executeArchiveSurveyScan(criteria)
+            val batch = tessArchiveSurveyRepository.executeMeasuredSurveyBatch(criteria)
+            val discoveries = batch.candidates
             val nowMs = System.currentTimeMillis()
 
             if (discoveries.isNotEmpty()) {
-                Log.i(TAG, "Scout discovered ${discoveries.size} potential transits! Posting system notification...")
+                Log.i(TAG, "Scout reanalyzed ${discoveries.size} potential transits! Posting system notification...")
                 postTransitAlertNotification(discoveries)
             } else {
                 Log.d(TAG, "Scout completed. No candidates above criteria thresholds in this batch.")
             }
 
             // Save telemetry
-            val currentTotal = prefs.getInt(KEY_TOTAL_STARS_EVALUATED, 0) + batchSize
+            val currentTotal = prefs.getInt(KEY_TOTAL_STARS_EVALUATED, 0) + batch.evaluated
             val currentDiscTotal = prefs.getInt(KEY_DISCOVERIES_COUNT, 0) + discoveries.size
 
             prefs.edit()
                 .putLong(KEY_LAST_RUN_TIMESTAMP, nowMs)
-                .putString(KEY_LAST_RUN_STATUS, "SUCCESS")
+                .putString(KEY_LAST_RUN_STATUS, if (batch.evaluated == 0) "NO_COMPLETED_ANALYSES" else "CATALOG_REANALYSIS")
                 .putInt(KEY_TOTAL_STARS_EVALUATED, currentTotal)
                 .putInt(KEY_DISCOVERIES_COUNT, currentDiscTotal)
                 .apply {
@@ -108,7 +109,7 @@ class TessSurveyScannerWorker @AssistedInject constructor(
             append("• Adâncime: ${primary.depthPpm.toInt()} ppm (Δm: ${String.format(Locale.US, "%.4f", primary.depthMagnitudeDelta)} mag)\n")
             append("• Perioadă orbitală estimată: ${String.format(Locale.US, "%.3f", primary.orbitalPeriodDays)} zile\n")
             append("• Durată tranzit: ${String.format(Locale.US, "%.1f", primary.transitDurationHours)} ore\n")
-            append("• Semnificație statistică: SNR ${String.format(Locale.US, "%.1f", primary.snr)}σ\n")
+            append("• Raport semnal/zgomot (necalibrat): SNR ${String.format(Locale.US, "%.1f", primary.snr)}σ\n")
             append("• Diagnostic: ${primary.verdictLabel}\n")
             if (discoveries.size > 1) {
                 append("\n+ încă ${discoveries.size - 1} candidați descoperiți în acest sondaj!")
