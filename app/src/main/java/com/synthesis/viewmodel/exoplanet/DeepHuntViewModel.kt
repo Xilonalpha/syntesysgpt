@@ -66,6 +66,41 @@ class DeepHuntViewModel @Inject constructor(
     private val _independentStatus = MutableStateFlow("")
     val independentStatus = _independentStatus.asStateFlow()
 
+    private val _archiveStatus = MutableStateFlow("")
+    val archiveStatus = _archiveStatus.asStateFlow()
+    private val _archiveLoading = MutableStateFlow(false)
+    val archiveLoading = _archiveLoading.asStateFlow()
+
+    fun loadExperimentArchive(offsetInput: String) {
+        if (_archiveLoading.value) return
+        val offset = offsetInput.trim().toIntOrNull()
+        if (offset == null || offset < 0) {
+            _archiveStatus.value = "Invalid archive offset"
+            return
+        }
+        _archiveLoading.value = true
+        viewModelScope.launch {
+            try {
+                val page = mastSynchronization.listArchivedExperiments(offset)
+                _archiveStatus.value = buildString {
+                    for (entry in page.entries) {
+                        appendLine("TIC ${entry.manifest.tic} | ${entry.id}")
+                        appendLine("Sectors: ${entry.manifest.sources.joinToString { it.sector.toString() }} | ${entry.manifest.algorithm}")
+                    }
+                    appendLine("Verified: ${page.entries.size}; rejected: ${page.rejected.size}")
+                    for (file in page.rejected) appendLine("Rejected: $file")
+                    appendLine("Next offset: ${page.nextOffset ?: "end"}")
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _archiveStatus.value = "Archive unavailable: ${e.message}"
+            } finally {
+                _archiveLoading.value = false
+            }
+        }
+    }
+
     fun searchIndependentTargets(input: String) {
         if (_independentRunning.value) return
         val targets = input.split(Regex("[,;\\s]+")).filter { it.isNotBlank() }.distinct()
