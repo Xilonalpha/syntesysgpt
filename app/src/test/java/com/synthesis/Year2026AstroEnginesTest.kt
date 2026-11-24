@@ -83,16 +83,11 @@ class Year2026AstroEnginesTest {
 
         assertTrue("Scale height must be physically realistic (500 - 1500 km for hot Saturn)", spectrum.scaleHeightKm in 500.0..1500.0)
         assertTrue("TSM must qualify as high-priority (> 50 for WASP-39b)", spectrum.transmissionSpectroscopyMetric > 50.0)
-        assertTrue("Must detect CO2 asymmetric stretch", spectrum.detectedAbsorptionFeatures.contains("CO2"))
-        assertTrue("Must detect SO2 photochemical tracer", spectrum.detectedAbsorptionFeatures.contains("SO2"))
-        assertTrue("Must detect H2O water vapor", spectrum.detectedAbsorptionFeatures.contains("H2O"))
+        assertTrue("No observed molecular features without measured spectra", spectrum.detectedAbsorptionFeatures.isEmpty())
+        assertTrue("No invented spectral bins", spectrum.spectrumPoints.isEmpty())
+        assertFalse(spectrum.photochemistryDetected)
+        assertTrue(spectrum.atmosphericSummary.contains("nu observație JWST"))
 
-        // Verify that 4.3 um CO2 transit depth is significantly higher than baseline
-        val co2Point = spectrum.spectrumPoints.find { it.wavelengthMicrons == 4.3 }
-        val baselinePoint = spectrum.spectrumPoints.find { it.wavelengthMicrons == 0.8 }
-        assertNotNull(co2Point)
-        assertNotNull(baselinePoint)
-        assertTrue("CO2 absorption peak depth must exceed optical baseline", co2Point!!.transitDepthPpm > baselinePoint!!.transitDepthPpm)
     }
 
     @Test
