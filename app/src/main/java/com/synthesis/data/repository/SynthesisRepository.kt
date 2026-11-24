@@ -128,7 +128,9 @@ class SynthesisRepository @Inject constructor(
                 val observations = mutableListOf<Observation>()
                 var index = 0
                 response.nearEarthObjects?.forEach { (_, objects) ->
-                    objects.forEach { neo ->
+                    objects.forEach neoLoop@ { neo ->
+                        val magnitude = neo.absoluteMagnitudeH?.takeIf { it.isFinite() } ?: return@neoLoop
+                        val epoch = neo.closeApproachData?.firstOrNull()?.epochDateCloseApproach ?: return@neoLoop
                         val approach = neo.closeApproachData?.firstOrNull()
                         observations.add(
                             Observation(
@@ -137,15 +139,11 @@ class SynthesisRepository @Inject constructor(
                                 sourceId = "nasa",
                                 sourceName = "NASA NEO",
                                 entity = neo.name ?: "Unknown Asteroid",
-                                timestamp = approach?.epochDateCloseApproach ?: System.currentTimeMillis(),
-                                location = approach?.missDistance?.kilometers?.toDoubleOrNull()?.let {
-                                    GeoLocation(latitude = 0.0, longitude = 0.0, altitude = null)
-                                },
+                                timestamp = epoch,
+                                location = null,
                                 measurement = Measurement(
-                                    value = neo.absoluteMagnitudeH ?: 0.0,
-                                    unit = "H_mag",
-                                    expectedValue = 22.0,
-                                    deviation = neo.absoluteMagnitudeH?.minus(22.0)
+                                    value = magnitude,
+                                    unit = "H_mag"
                                 ),
                                 rawData = neo.toString(),
                                 normalizedData = "asteroid:${neo.name},h_mag:${neo.absoluteMagnitudeH},hazardous:${neo.isPotentiallyHazardous}",
@@ -213,26 +211,28 @@ class SynthesisRepository @Inject constructor(
                     maxRadiusKm = maxRadiusKm,
                     limit = 200
                 )
-                val observations = response.features?.mapIndexed { index, feature ->
+                val observations = response.features?.mapIndexedNotNull { index, feature ->
                     val coords = feature.geometry?.coordinates
                     val props = feature.properties
+                    val magnitude = props?.mag?.takeIf { it.isFinite() } ?: return@mapIndexedNotNull null
+                    val epoch = props?.time ?: return@mapIndexedNotNull null
+                    val lat = coords?.getOrNull(1)?.takeIf { it.isFinite() && it in -90.0..90.0 } ?: return@mapIndexedNotNull null
+                    val lon = coords?.getOrNull(0)?.takeIf { it.isFinite() && it in -180.0..180.0 } ?: return@mapIndexedNotNull null
                     Observation(
                         id = "usgs_${feature.id ?: index}",
                         investigationId = "",
                         sourceId = "usgs",
                         sourceName = "USGS Earthquake Catalog",
                         entity = props?.place ?: "Unknown Location",
-                        timestamp = props?.time ?: System.currentTimeMillis(),
+                        timestamp = epoch,
                         location = GeoLocation(
-                            latitude = coords?.get(1) ?: 0.0,
-                            longitude = coords?.get(0) ?: 0.0,
-                            altitude = coords?.get(2)
+                            latitude = lat,
+                            longitude = lon,
+                            altitude = null
                         ),
                         measurement = Measurement(
-                            value = props?.mag ?: 0.0,
-                            unit = "Mw",
-                            expectedValue = 4.5,
-                            deviation = props?.mag?.minus(4.5)
+                            value = magnitude,
+                            unit = "catalog_magnitude"
                         ),
                         rawData = feature.toString(),
                         normalizedData = "location:${props?.place},mag:${props?.mag},depth:${coords?.get(2)},alert:${props?.alert},tsunami:${props?.tsunami}",
@@ -254,6 +254,7 @@ class SynthesisRepository @Inject constructor(
                 val observations = mutableListOf<Observation>()
 
                 response.current?.let { current ->
+                    val temperature = current.temperature2m?.takeIf { it.isFinite() } ?: return@let
                     observations.add(
                         Observation(
                             id = "openmeteo_current_${System.currentTimeMillis()}",
@@ -264,10 +265,8 @@ class SynthesisRepository @Inject constructor(
                             timestamp = System.currentTimeMillis(),
                             location = GeoLocation(latitude = latitude, longitude = longitude),
                             measurement = Measurement(
-                                value = current.temperature2m ?: 0.0,
-                                unit = "°C",
-                                expectedValue = 15.0,
-                                deviation = current.temperature2m?.minus(15.0)
+                                value = temperature,
+                                unit = "°C"
                             ),
                             rawData = current.toString(),
                             normalizedData = "temp:${current.temperature2m},humidity:${current.relativeHumidity2m},pressure:${current.pressureMsl},wind:${current.windSpeed10m}",
@@ -283,6 +282,8 @@ class SynthesisRepository @Inject constructor(
                     val winds = response.hourly.windSpeed10m ?: emptyList()
 
                     times.indices.filter { it % 6 == 0 }.forEach { i ->
+                        val temperature = temps.getOrNull(i)?.takeIf { it.isFinite() } ?: return@forEach
+                        val epoch = parseIsoDate(times.getOrNull(i)) ?: return@forEach
                         observations.add(
                             Observation(
                                 id = "openmeteo_h_${i}",
@@ -290,10 +291,10 @@ class SynthesisRepository @Inject constructor(
                                 sourceId = "open_meteo",
                                 sourceName = "Open-Meteo Hourly",
                                 entity = "Weather Forecast",
-                                timestamp = parseIsoDate(times.getOrNull(i)) ?: System.currentTimeMillis(),
+                                timestamp = epoch,
                                 location = GeoLocation(latitude = latitude, longitude = longitude),
                                 measurement = Measurement(
-                                    value = temps.getOrNull(i) ?: 0.0,
+                                    value = temperature,
                                     unit = "°C"
                                 ),
                                 rawData = "time:${times.getOrNull(i)},temp:${temps.getOrNull(i)},pressure:${pressures.getOrNull(i)},wind:${winds.getOrNull(i)}",
@@ -333,7 +334,8 @@ class SynthesisRepository @Inject constructor(
                 params.forEach { (paramName, dateValues) ->
                     dateValues.entries.toList().takeLast(30).forEach { (dateStr, value) ->
                         // NASA POWER sentinel fill value for missing/uncalibrated data is -999 or <= -900
-                        if (value <= -900.0 || value.isNaN()) return@forEach
+                        if (value <= -900.0 || !value.isFinite()) return@forEach
+                        val epoch = parseNasaPowerDate(dateStr) ?: return@forEach
                         val unit = when (paramName) {
                             "T2M" -> "°C"
                             "PS" -> "kPa"
@@ -348,7 +350,7 @@ class SynthesisRepository @Inject constructor(
                                 sourceId = "nasa_power",
                                 sourceName = "NASA POWER",
                                 entity = paramName,
-                                timestamp = parseNasaPowerDate(dateStr) ?: System.currentTimeMillis(),
+                                timestamp = epoch,
                                 location = GeoLocation(latitude = latitude, longitude = longitude),
                                 measurement = Measurement(value = value, unit = unit),
                                 rawData = "$paramName:$dateStr=$value",
@@ -410,20 +412,21 @@ class SynthesisRepository @Inject constructor(
                 val forecastUrl = pointsResponse.properties?.forecast ?: return@withContext Result.success(emptyList())
                 val forecastResponse = noaaApi.getForecast(forecastUrl = forecastUrl)
 
-                val observations = forecastResponse.properties?.periods?.mapIndexed { index, period ->
+                val observations = forecastResponse.properties?.periods?.mapIndexedNotNull { index, period ->
+                    val temperature = period.temperature?.toDouble()?.takeIf { it.isFinite() } ?: return@mapIndexedNotNull null
+                    val unit = period.temperatureUnit?.takeIf { it == "F" || it == "C" || it == "°F" || it == "°C" } ?: return@mapIndexedNotNull null
+                    val epoch = parseIsoDate(period.startTime) ?: return@mapIndexedNotNull null
                     Observation(
                         id = "noaa_forecast_$index",
                         investigationId = "",
                         sourceId = "noaa",
                         sourceName = "NOAA / NWS",
                         entity = period.name ?: "Forecast Period",
-                        timestamp = parseIsoDate(period.startTime) ?: System.currentTimeMillis(),
+                        timestamp = epoch,
                         location = GeoLocation(latitude = latitude, longitude = longitude),
                         measurement = Measurement(
-                            value = period.temperature?.toDouble() ?: 0.0,
-                            unit = period.temperatureUnit ?: "°F",
-                            expectedValue = 70.0,
-                            deviation = period.temperature?.toDouble()?.minus(70.0)
+                            value = temperature,
+                            unit = unit
                         ),
                         rawData = period.toString(),
                         normalizedData = "period:${period.name},temp:${period.temperature},forecast:${period.shortForecast}",
