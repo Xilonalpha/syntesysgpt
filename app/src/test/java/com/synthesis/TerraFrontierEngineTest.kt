@@ -23,6 +23,18 @@ class TerraFrontierEngineTest {
     }
 
     @Test
+    fun testAbsolutePressureBoundary() {
+        assertEquals(1.0, engine.computeHadalPressure(0), 1e-12)
+        val expected = 1.0 + 1025.0 * 1.0021 * 9.80665 * 1000.0 / 101325.0
+        assertEquals(expected, engine.computeHadalPressure(1000), 1e-9)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun testNegativeDepthRejected() {
+        engine.computeHadalPressure(-1)
+    }
+
+    @Test
     fun testMantleHydrationBudgetExceedsSurfaceOceans() {
         val defaultMantleWater = engine.computeMantleHydrationBudget(1.5)
         assertEquals("Ringwoodit (γ-olivină) & Wadsleyit (β-fază)", defaultMantleWater.mineralPhase)
@@ -35,7 +47,9 @@ class TerraFrontierEngineTest {
         val state2026 = engine.simulateGeomagneticDecayAndDrift(2026)
         assertEquals(22.4, state2026.currentIntensityMicroTesla, 0.1)
         assertTrue("Polar drift should be around 48 km/year", state2026.northMagneticDriftKmPerYear in 40.0..60.0)
-        assertTrue(state2026.isSplittingIntoDoubleCore)
+        assertFalse(state2026.isSplittingIntoDoubleCore)
+        assertTrue(state2026.regionName.contains("Simulare"))
+        assertTrue(state2026.lowEarthOrbitRadiationRisk.startsWith("Nevalidat"))
     }
 
     @Test
