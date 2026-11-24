@@ -38,10 +38,20 @@ class DataNormalizer @Inject constructor() {
             location = observation.location,
             measurement = normVal,
             unit = normUnit,
-            uncertainty = observation.uncertainty * when (origUnit) { "°F" -> 5f / 9f; "hPa" -> 0.1f; else -> 1f },
+            uncertainty = normalizeUncertainty(observation.uncertainty, origUnit),
             source = observation.sourceName,
             observationType = observation.observationType
         )
+    }
+
+    /** Preserve unavailable uncertainty across unit conversions. */
+    fun normalizeUncertainty(value: Float, unit: String): Float {
+        if (!value.isFinite() || value < 0f) return -1f
+        return value * when (standardizeUnit(unit)) {
+            "°F" -> 5f / 9f
+            "hPa" -> 0.1f
+            else -> 1f
+        }
     }
 
     fun normalizeBatch(observations: List<Observation>): List<NormalizedRecord> {
