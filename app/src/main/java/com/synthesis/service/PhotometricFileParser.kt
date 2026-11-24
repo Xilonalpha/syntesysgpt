@@ -18,7 +18,8 @@ data class PhotometryParseResult(
     val snr: Double,
     val chiSquaredPerDof: Double,
     val logSummary: String,
-    val periodicTransitResult: PeriodicTransitDetectionResult? = null
+    val periodicTransitResult: PeriodicTransitDetectionResult? = null,
+    val preliminarySingleDip: SingleDipEstimate? = null
 )
 
 @Singleton
@@ -111,8 +112,9 @@ class PhotometricFileParser @Inject constructor(
         val midBjd = if (detected) periodicResult.epochBjd else Double.NaN
         val durationMin = if (detected) periodicResult.transitDurationHours * 60 else Double.NaN
         val snr = if (detected) periodicResult.transitSnr else Double.NaN
+        val singleDip = if (!detected) findPreliminaryDip(finalPoints) else null
         val reducedChiSq = Double.NaN // model degrees of freedom not established
-        val log = "${finalPoints.size} puncte importate; proveniență neconfirmată. ${periodicResult.statusSummary}"
+        val log = "${finalPoints.size} puncte importate; proveniență neconfirmată. ${periodicResult.statusSummary}" + if (singleDip != null) " Eveniment individual preliminar; semnificație locală, necalibrată global." else ""
 
         return PhotometryParseResult(
             points = finalPoints,
@@ -123,8 +125,27 @@ class PhotometricFileParser @Inject constructor(
             snr = snr,
             chiSquaredPerDof = reducedChiSq,
             logSummary = log,
-            periodicTransitResult = periodicResult
+            periodicTransitResult = periodicResult,
+            preliminarySingleDip = singleDip
         )
+    }
+
+    // Conservative screening: exactly one contiguous low-flux run, bracketed by observations.
+    private fun findPreliminaryDip(points: List<PhotometricDataPoint>): SingleDipEstimate? {
+        if (points.size < 9) return null
+        val flux = points.map { it.relativeFlux }.sorted()
+        val median = flux[flux.size / 2]
+        val deviations = flux.map { kotlin.math.abs(it - median) }.sorted()
+        val errors = points.map { it.fluxError }.sorted()
+        val noise = maxOf(1.4826 * deviations[deviations.size / 2], errors[errors.size / 2])
+        val low = points.indices.filter { median - points[it].relativeFlux > 3 * maxOf(noise, points[it].fluxError) }
+        if (low.size < 3 || low.first() < 3 || low.last() > points.lastIndex - 3) return null
+        if (low.last() - low.first() + 1 != low.size) return null
+        val gaps = points.zipWithNext { a, b -> b.bjdTime - a.bjdTime }.sorted()
+        val cadence = gaps[gaps.size / 2]
+        if (cadence <= 0 || (low.first()-1..low.last()).any { points[it+1].bjdTime - points[it].bjdTime > 3 * cadence }) return null
+        return SingleDipAnalysis.estimate(points, points[low.first()].bjdTime, points[low.last()].bjdTime)
+            ?.takeIf { it.localSnr >= 7.0 }
     }
 
     /**
