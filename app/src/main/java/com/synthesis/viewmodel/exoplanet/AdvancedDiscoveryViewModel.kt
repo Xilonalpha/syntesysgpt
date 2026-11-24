@@ -58,6 +58,7 @@ sealed interface ScientificCalculationState {
 }
 
 sealed interface ScientificCalculationResult {
+    data class Magnetopause(val value: MagnetopauseEstimate) : ScientificCalculationResult
     data class Timing(val value: LinearEphemeris) : ScientificCalculationResult
     data class Aliases(val value: List<OrbitalAlias>) : ScientificCalculationResult
     data class Contrast(val value: SpectralContrast) : ScientificCalculationResult
@@ -1016,5 +1017,9 @@ class AdvancedDiscoveryViewModel @Inject constructor(
         runScientificCalculation("Asimetrie") {
             ScientificCalculationResult.Asymmetry(repository.evaluateMeasuredAsymmetry(ingress,
                 egress, ingressError, egressError, correlation))
+        }
+    fun calculateMagnetopause(field: Double, density: Double, speed: Double) =
+        runScientificCalculation("Magnetopauză") {
+            ScientificCalculationResult.Magnetopause(repository.evaluatePressureBalance(field, density, speed))
         }
 }
