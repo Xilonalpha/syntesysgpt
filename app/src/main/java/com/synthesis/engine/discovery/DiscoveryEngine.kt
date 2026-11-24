@@ -7,9 +7,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Main orchestrator: takes raw observations for an investigation, detects hidden
- * patterns, scores each one for patentability and commercial value, and produces
- * ranked Discovery objects — new findings, not just an evaluation of existing ones.
+ * Reserved discovery orchestrator. No independently validated discovery generation is implemented.
  */
 @Singleton
 class DiscoveryEngine @Inject constructor(
@@ -19,5 +17,9 @@ class DiscoveryEngine @Inject constructor(
 ) {
 
     // Unavailable until independently validated evidence and methodology exist.
-    suspend fun generateDiscoveries(investigationId: String, observations: List<Observation>): List<Discovery> = emptyList()
+    suspend fun generateDiscoveries(investigationId: String, observations: List<Observation>): List<Discovery> {
+        require(investigationId.isNotBlank())
+        require(observations.all { it.investigationId == investigationId })
+        return emptyList()
+    }
 }
