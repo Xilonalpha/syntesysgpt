@@ -322,10 +322,11 @@ class PeriodicTransitAnalysisEngine @Inject constructor(
 
         // 11. Secondary Eclipse Vetting (Searches for companion occultation at phase 0.5)
         val secEclipseWindow = phaseFoldedPoints.filter { abs(abs(it.phase) - 0.5) < (inTransitHalfWidth * 1.2) }
-        val secDepth = if (secEclipseWindow.isNotEmpty()) {
-            (baselineMean - secEclipseWindow.map { it.relativeFlux }.average()).coerceAtLeast(0.0)
+        val secondaryBaseline = outOfTransit.filter { abs(abs(it.phase) - 0.5) >= inTransitHalfWidth * 1.2 }
+        val secDepth = if (secEclipseWindow.isNotEmpty() && secondaryBaseline.isNotEmpty()) {
+            (secondaryBaseline.map { it.relativeFlux }.average() - secEclipseWindow.map { it.relativeFlux }.average()).coerceAtLeast(0.0)
         } else 0.0
-        val secErr = mad / sqrt(secEclipseWindow.size.coerceAtLeast(1).toDouble())
+        val secErr = mad * sqrt(1.0 / secEclipseWindow.size.coerceAtLeast(1) + 1.0 / secondaryBaseline.size.coerceAtLeast(1))
         val secSigma = secDepth / secErr.coerceAtLeast(1e-6)
         val isSecDetected = secSigma >= 3.0 && (secDepth > bestDepthFraction * 0.25)
 
