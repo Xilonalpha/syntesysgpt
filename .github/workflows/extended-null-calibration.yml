@@ -44,6 +44,9 @@ jobs:
           printf 'commit=%s\nseed=%s\nrho=%s\n' "$GITHUB_SHA" "${{ matrix.seed }}" "${{ matrix.rho }}" > evidence/config.txt
           bash scripts/run_bls_calibration.sh 300 "${{ matrix.seed }}" null "${{ matrix.rho }}" > evidence/null.csv 2> evidence/null.log
           python scripts/summarize_null_calibration.py evidence/null.csv --expected 300 | tee evidence/summary.json
+      - name: Enforce synthetic null acceptance criterion
+        run: |
+          python -c 'import json,sys; r=json.load(open("evidence/summary.json")); ok=r.get("below_one_percent") is True and r.get("trials")==300; print("Synthetic null acceptance:", ok); sys.exit(0 if ok else 1)'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
