@@ -1,0 +1,51 @@
+name: SYNTHESIS extended null calibration
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  null-calibration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rho: '0.0'
+            seed: '11501'
+          - rho: '0.5'
+            seed: '11502'
+          - rho: '0.8'
+            seed: '11503'
+          - rho: '0.95'
+            seed: '11504'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install scientific dependencies
+        run: python -m pip install numpy==1.26.4 astropy==6.1.7 astroquery==0.4.10
+      - name: Run scientific integrity unit tests
+        run: python -m unittest discover -s scripts -p 'test_*.py' -v
+      - name: Install Kotlin compiler
+        run: |
+          curl --fail --location --retry 3 -o "$RUNNER_TEMP/kotlin.zip" https://github.com/JetBrains/kotlin/releases/download/v2.0.21/kotlin-compiler-2.0.21.zip
+          unzip -q "$RUNNER_TEMP/kotlin.zip" -d "$RUNNER_TEMP/kotlin"
+          echo "$RUNNER_TEMP/kotlin/kotlinc/bin" >> "$GITHUB_PATH"
+      - name: Run independent null campaign
+        run: |
+          mkdir -p evidence
+          python -m pip install scipy==1.13.1
+          printf 'commit=%s\nseed=%s\nrho=%s\n' "$GITHUB_SHA" "${{ matrix.seed }}" "${{ matrix.rho }}" > evidence/config.txt
+          bash scripts/run_bls_calibration.sh 300 "${{ matrix.seed }}" null "${{ matrix.rho }}" > evidence/null.csv 2> evidence/null.log
+          python scripts/summarize_null_calibration.py evidence/null.csv --expected 300 | tee evidence/summary.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: null-rho-${{ matrix.rho }}
+          path: evidence/
