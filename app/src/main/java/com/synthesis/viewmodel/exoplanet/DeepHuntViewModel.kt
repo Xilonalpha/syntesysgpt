@@ -71,6 +71,25 @@ class DeepHuntViewModel @Inject constructor(
     private val _archiveLoading = MutableStateFlow(false)
     val archiveLoading = _archiveLoading.asStateFlow()
 
+    fun replayArchivedExperiment(experimentId: String) {
+        if (_archiveLoading.value || _independentRunning.value) return
+        _archiveLoading.value = true
+        _archiveStatus.value = "Replaying verified FITS..."
+        viewModelScope.launch {
+            try {
+                val id = experimentId.trim()
+                val result = mastSynchronization.replayExperiment(id)
+                _archiveStatus.value = "Replay saved | Experiment: $id\nAccepted signal: ${result.isDetected}\nPeriod: ${result.bestPeriodDays} days\nSNR: ${result.transitSnr}\nUse Read verified results to inspect runs. Novelty not established."
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _archiveStatus.value = "Replay incomplete: ${e.message}"
+            } finally {
+                _archiveLoading.value = false
+            }
+        }
+    }
+
     fun loadArchivedMetrics(experimentId: String, runId: String) {
         if (_archiveLoading.value) return
         _archiveLoading.value = true
