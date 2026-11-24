@@ -29,7 +29,8 @@ class TessSurveyScannerWorker @AssistedInject constructor(
     @Assisted workerParams: WorkerParameters,
     private val tessArchiveSurveyRepository: TessArchiveSurveyRepository,
     private val xilonRepository: com.synthesis.data.repository.xilon.XilonRepository,
-    private val synchronization: com.synthesis.service.MastDataSynchronizationService
+    private val synchronization: com.synthesis.service.MastDataSynchronizationService,
+    private val researchRepository: com.synthesis.data.repository.SynthesizedResearchRepository
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
@@ -59,7 +60,35 @@ class TessSurveyScannerWorker @AssistedInject constructor(
                 val page = prefs.getInt("independent_tic_page", 1).coerceAtLeast(1)
                 val signals = xilonRepository.runIndependentSurveyPage(
                     maxTmag, page, batchSize.coerceIn(1, 10), synchronization
-                )
+                ) { observation, comparison, comparisonEvidence ->
+                    val d = observation.periodicDetection
+                    val experiment = requireNotNull(observation.experimentId)
+                    val tic = observation.target.ticId
+                    if (d.transitSnr < minSnr || d.transitDepthPpm < minDepth) return@runIndependentSurveyPage
+                    val star = xilonRepository.fetchStarProperties(tic).getOrThrow()
+                    val radius = star.radiusSun
+                    if (dwarfOnly && (radius == null || !radius.isFinite() || radius <= 0.0 || radius > 1.35)) return@runIndependentSurveyPage
+                    val payload = com.google.gson.JsonObject().apply {
+                        addProperty("experiment_id", experiment)
+                        addProperty("tic", tic)
+                        addProperty("period_days", d.bestPeriodDays)
+                        addProperty("depth_ppm", d.transitDepthPpm)
+                        addProperty("snr", d.transitSnr)
+                        addProperty("catalog_status", comparison)
+                        addProperty("comparison_evidence", comparisonEvidence)
+                    }
+                    researchRepository.saveResearch(com.synthesis.data.local.entity.SynthesizedResearchEntity(
+                        id = "independent-tess:$experiment",
+                        title = "Semnal TESS nevalidat: TIC $tic",
+                        targetName = "TIC $tic",
+                        researchCategory = "EXOPLANET",
+                        summary = "Analiza fotometrica independenta; $comparison. Noutate neconfirmata.",
+                        synthesizedDataJson = payload.toString(),
+                        confidenceScore = 0f,
+                        sourceCount = observation.products.size,
+                        isVerified = false
+                    ))
+                }
                 prefs.edit()
                     .putInt("independent_tic_page", if (page == Int.MAX_VALUE) 1 else page + 1)
                     .putLong(KEY_LAST_RUN_TIMESTAMP, System.currentTimeMillis())
