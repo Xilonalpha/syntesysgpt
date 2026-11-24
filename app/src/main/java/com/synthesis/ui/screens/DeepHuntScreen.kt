@@ -34,6 +34,9 @@ fun DeepHuntScreen(
     viewModel: DeepHuntViewModel = hiltViewModel()
 ) {
     val selectedTab by viewModel.selectedTab.collectAsState()
+    val independentRunning by viewModel.independentRunning.collectAsState()
+    val independentStatus by viewModel.independentStatus.collectAsState()
+    var independentTargets by remember { mutableStateOf("") }
     val monoTransits by viewModel.monoTransits.collectAsState()
     val ttvSystems by viewModel.ttvSystems.collectAsState()
     val atmosphericScores by viewModel.atmosphericScores.collectAsState()
@@ -126,12 +129,27 @@ fun DeepHuntScreen(
             }
 
             when (selectedTab) {
+                DeepHuntTab.INDEPENDENT_SEARCH -> LazyColumn(
+                    modifier = Modifier.fillMaxSize().padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    item {
+                        Text("Independent TESS FITS analysis. Catalog novelty and planet confirmation are not assessed.", color = TextSecondary)
+                        OutlinedTextField(value = independentTargets, onValueChange = { independentTargets = it },
+                            label = { Text("1–5 TIC IDs, separated by spaces") }, modifier = Modifier.fillMaxWidth())
+                        Button(onClick = { viewModel.searchIndependentTargets(independentTargets) },
+                            enabled = !independentRunning && independentTargets.isNotBlank()) {
+                            Text(if (independentRunning) "Analyzing..." else "Search targets")
+                        }
+                        Text(independentStatus, color = TextSecondary)
+                    }
+                }
                 DeepHuntTab.MONO_TRANSITS -> MonoTransitsView(
                     candidates = monoTransits,
                     onOpenSolver = { showSolverDialog = true },
                     onSaveCandidate = { candidate ->
                         viewModel.saveCandidateToResearchArchive(candidate)
-                        Toast.makeText(context, "Sinteza '${candidate.candidateName}' a fost salvată în Baza de Date Room!", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Export indisponibil: proveniența observațiilor nu este validată.", Toast.LENGTH_SHORT).show()
                     }
                 )
                 DeepHuntTab.TESS_SURVEY_SCOUT -> TessSurveyScoutView(
@@ -220,7 +238,7 @@ private fun MonoTransitsView(
                         "NASA's SPOC automated pipeline requires >= 2 or 3 transits in a 27.4-day sector. " +
                                 "Temperate exoplanets in the Habitable Zone of solar-type stars orbit in 100–365+ days, " +
                                 "meaning they transit strictly ONCE per sector and are discarded as noise. " +
-                                "Below are confirmed mono-transits inverted into true orbits using Seager & Mallén-Ornelas circular dynamics.",
+                                "Single-transit orbital estimates are conditional on circular geometry and are not confirmed orbits.",
                         style = MaterialTheme.typography.bodySmall,
                         color = TextSecondary
                     )
