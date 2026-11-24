@@ -48,7 +48,7 @@ class PlatoAsteroseismologyEngine @Inject constructor() {
         observedTransitDepthPpm: Double
     ): PlatoAsteroseismicResult {
         require(listOf(nuMaxMicroHz, deltaNuMicroHz, teffK).all { it.isFinite() && it > 0 })
-        require(metallicityFeH.isFinite() && observedTransitDepthPpm.isFinite() && observedTransitDepthPpm in 0.0..1000000.0)
+        require(metallicityFeH.isFinite() && observedTransitDepthPpm.isFinite() && observedTransitDepthPpm > 0.0 && observedTransitDepthPpm < 1000000.0)
         val nuMaxRatio = nuMaxMicroHz / NU_MAX_SUN
         val deltaNuRatio = deltaNuMicroHz / DELTA_NU_SUN
         val teffRatio = teffK / TEFF_SUN
@@ -71,7 +71,7 @@ class PlatoAsteroseismologyEngine @Inject constructor() {
         val stellarAgeGyr = Double.NaN // Requires evolutionary tracks and measured uncertainties
         val mainSequenceLifetimeGyr = Double.NaN
         val planetRadiusEarth = R_SUN_IN_R_EARTH * sqrt(observedTransitDepthPpm / 1e6) * stellarRadiusSun
-        require(planetRadiusEarth.isFinite())
+        require(planetRadiusEarth.isFinite() && planetRadiusEarth > 0)
         val planetRadiusErrorPercent = Double.NaN
         val isOldEnoughForLife = false // Not assessed
         val habitabilityVerdict = "Habitability and stellar age not assessed."
