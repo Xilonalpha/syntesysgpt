@@ -170,10 +170,10 @@ class PeriodicTransitAnalysisEngineTest {
             PhotometricDataPoint(minuteOffset = t * 1440.0, bjdTime = 2460000.0 + t,
                 relativeFlux = 1.0 - primary - secondary + 0.0002 * sin(t * 51.0), fluxError = 0.0008)
         }
-        val primary = engine.analyzeDataPoints(points, 1.3, 1.7)
+        val primary = engine.analyzeDataPoints(points, 0.5, 4.0)
         assertTrue(primary.statusSummary, primary.isDetected)
         assertEquals(1.5, primary.bestPeriodDays, 0.05)
-        val secondary = engine.searchAdditionalSignal(points, primary, 2.0, 2.6)
+        val secondary = engine.searchAdditionalSignal(points, primary, 0.5, 4.0)
         assertNotNull("Injected secondary signal must be recovered", secondary)
         assertEquals(2.3, secondary!!.bestPeriodDays, 0.08)
         assertEquals(801, points.size)
