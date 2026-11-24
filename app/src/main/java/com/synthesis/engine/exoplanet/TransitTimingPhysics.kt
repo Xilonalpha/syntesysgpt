@@ -6,7 +6,8 @@ data class TransitTiming(val cycle: Int, val epochDays: Double, val errorDays: D
 data class TimingResidual(val cycle: Int, val residualMinutes: Double)
 data class LinearEphemeris(val referenceCycle: Int, val epochDays: Double, val periodDays: Double,
     val periodErrorDays: Double, val chiSquared: Double, val degreesOfFreedom: Int,
-    val residuals: List<TimingResidual>)
+    val residuals: List<TimingResidual>, val epochErrorDays: Double = Double.NaN,
+    val epochPeriodCovariance: Double = Double.NaN)
 
 /** Independent timing errors, known integer cycles and common time scale.
  * Fits a constant period; excess residuals do not establish a companion.
@@ -62,6 +63,7 @@ object TransitTimingPhysics {
         val epoch = ref.epochDays + intercept
         require(epoch.isFinite() && residual.all { (it*1440).isFinite() })
         return LinearEphemeris(ref.cycle, epoch, period, sqrt(1/sxx), chi, p.size-2,
-            p.indices.map { TimingResidual(p[it].cycle, residual[it]*1440) })
+            p.indices.map { TimingResidual(p[it].cycle, residual[it]*1440) },
+            sqrt(1/sw + mx*mx/sxx), -mx/sxx)
     }
 }
