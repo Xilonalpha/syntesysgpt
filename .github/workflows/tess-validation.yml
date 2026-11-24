@@ -3,11 +3,13 @@ on:
   workflow_dispatch:
     inputs:
       tic:
-        description: Independently verified TIC identifier
+        description: Independently verified TIC identifier (default WASP-4)
         required: true
+        default: '402026209'
       expected_period:
         description: Independently known period in days, or control for a preselected negative control
         required: true
+        default: '1.338230994'
 permissions:
   contents: read
 jobs:
