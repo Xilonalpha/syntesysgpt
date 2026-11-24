@@ -594,7 +594,10 @@ class PeriodicTransitAnalysisEngine @Inject constructor(
                 val inside = abs(cycles - round(cycles)) <= inTransitHalfWidth
                 yClean[i] - (yWeightedMean + bestDepthFraction * (boxWeight - if (inside) 1.0 else 0.0))
             }
-            com.synthesis.engine.exoplanet.CorrelatedNoisePhysics.estimate(tClean, residuals, dt, blockSize)
+            com.synthesis.engine.exoplanet.CorrelatedNoisePhysics.estimate(tClean, residuals, dt, blockSize)?.let {
+                com.synthesis.domain.model.exoplanet.ResidualNoiseDiagnostic(it.lagOneCorrelation, it.blockNoiseRatio,
+                    it.adjacentPairs, it.completeBlocks, dt, blockSize)
+            }
         }
         val status = buildString {
             if (noiseDiagnostic == null) append("Zgomot corelat: diagnostic indisponibil. ")
@@ -642,7 +645,8 @@ class PeriodicTransitAnalysisEngine @Inject constructor(
             phaseFoldedPoints = phaseFoldedPoints,
             binnedPhaseCurve = binnedCurve,
             transitModelCurve = modelCurve,
-            statusSummary = status
+            statusSummary = status,
+            residualNoise = noiseDiagnostic
         )
     }
 
