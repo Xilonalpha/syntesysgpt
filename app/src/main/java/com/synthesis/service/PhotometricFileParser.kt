@@ -59,16 +59,20 @@ class PhotometricFileParser @Inject constructor(
 
         if (hasHeader) {
             startLine = 1
+            bjdIdx = -1
+            fluxIdx = -1
+            errIdx = -1
             headerTokens.forEachIndexed { index, token ->
                 val isErr = token.contains("err") || token.contains("uncert") || token.contains("sigma")
-                if (isErr) {
+                if (isErr && (token.contains("flux") || token in setOf("error", "err", "sigma", "uncertainty"))) {
                     errIdx = index
-                } else if (token.contains("rel_flux") || token.contains("flux") || token.contains("normalized")) {
+                } else if (!isErr && (token.contains("rel_flux") || token.contains("relative_flux") || token.contains("normalized_flux") || token == "flux")) {
                     fluxIdx = index
-                } else if (token.contains("bjd") || token.contains("jd") || token.contains("time")) {
+                } else if (token == "bjd" || token == "bjd_tdb" || token == "bjd-tdb") {
                     bjdIdx = index
                 }
             }
+            require(bjdIdx >= 0 && fluxIdx >= 0 && errIdx >= 0 && setOf(bjdIdx, fluxIdx, errIdx).size == 3) { "Required BJD, relative flux and flux uncertainty columns missing" }
         }
 
         for (i in startLine until lines.size) {
