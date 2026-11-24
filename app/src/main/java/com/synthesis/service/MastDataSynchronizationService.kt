@@ -56,6 +56,38 @@ class MastDataSynchronizationService @Inject constructor(
         detection
     }
 
+    /** Select observed SPOC targets from a bounded MAST page, without using planet periods. */
+    suspend fun discoverObservedTicIds(sector: Int, page: Int = 1): List<String> = withContext(Dispatchers.IO) {
+        require(sector > 0 && page in 1..10000)
+        val request = com.google.gson.JsonObject().apply {
+            addProperty("service", "Mast.Caom.Filtered")
+            addProperty("format", "json")
+            addProperty("pagesize", 100)
+            addProperty("page", page)
+            add("params", com.google.gson.JsonObject().apply {
+                addProperty("columns", "target_name,sequence_number,obs_collection,provenance_name")
+                add("filters", com.google.gson.JsonArray().apply {
+                    for ((key, value) in listOf("obs_collection" to "TESS", "provenance_name" to "SPOC", "sequence_number" to sector.toString())) {
+                        add(com.google.gson.JsonObject().apply {
+                            addProperty("paramName", key)
+                            add("values", com.google.gson.JsonArray().apply { add(value) })
+                        })
+                    }
+                })
+            })
+        }
+        val response = mastPortalApi.invokeService(request.toString())
+        require(response.get("status")?.asString == "COMPLETE") { "MAST target query incomplete" }
+        val rows = response.getAsJsonArray("data") ?: error("Missing MAST target rows")
+        rows.mapNotNull { row ->
+            val obj = row.asJsonObject
+            if (obj.get("sequence_number")?.asString?.toIntOrNull() != sector ||
+                obj.get("obs_collection")?.asString != "TESS" || obj.get("provenance_name")?.asString != "SPOC") null
+            else obj.get("target_name")?.takeUnless { it.isJsonNull }?.asString
+                ?.takeIf { it.matches(Regex("[0-9]{1,16}")) && (it.toLongOrNull() ?: 0L) > 0 }
+        }.distinct().take(5)
+    }
+
     fun getCuratedTargets(): List<MastObservationTarget> = curatedPresets
 
     /**
