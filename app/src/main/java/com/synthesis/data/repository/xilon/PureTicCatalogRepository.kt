@@ -111,6 +111,16 @@ class PureTicCatalogRepository @Inject constructor(
                     "; audit temporal raportat: $matching/${checks.size()} verificari compatibile; neconfirmat"
                 }.getOrDefault("; audit temporal inconsistent")
 
+                val planNote = runCatching {
+                    val actions = j.getAsJsonArray("research_plan") ?: return@runCatching ""
+                    require(actions.size() in 1..9)
+                    val parsed = actions.map {
+                        com.synthesis.engine.discovery.PlanetResearchPlanner.Action.valueOf(it.asString)
+                    }
+                    require(parsed.distinct().size == parsed.size)
+                    require(com.synthesis.engine.discovery.PlanetResearchPlanner.Action.INDEPENDENT_FOLLOW_UP in parsed)
+                    "; investigatii propuse: " + parsed.joinToString { it.name }
+                }.getOrDefault("; plan de cercetare inconsistent")
                 PureTicCandidate(
                     ticId = tic, name = "TIC $tic", sector = string("sector"),
                     apparentMag = j.get("tmag").asDouble.also { require(it.isFinite()) },
@@ -121,7 +131,7 @@ class PureTicCatalogRepository @Inject constructor(
                     discoveryOrigin = if (additional == null) "Analiza fotometrica TESS independenta" else "Cautare BLS suplimentara pe aceleasi observatii",
                     whyNoToi = "Fara potrivire de perioada in tabelele interogate; noutate neconfirmata",
                     potentialPlanetaryType = "Semnal de tranzit nevalidat",
-                    scientificNotes = "Experiment: $experiment; comparatie: $evidence; filtrare preliminara trecuta, validare independenta necesara" + noiseNote + phaseNote + auditNote,
+                    scientificNotes = "Experiment: $experiment; comparatie: $evidence; filtrare preliminara trecuta, validare independenta necesara" + noiseNote + phaseNote + auditNote + planNote,
                     scientificPriority = "TRIAJ OBSERVATIONAL • SNR ${String.format(Locale.US, "%.1f", snr)} (necalibrat)",
                     isLiveIngested = true, ingestionTimestamp = row.timestamp, snrSigma = snr
                 )
