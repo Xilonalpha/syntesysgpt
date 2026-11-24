@@ -88,6 +88,28 @@ class MastDataSynchronizationService @Inject constructor(
         }.distinct().take(5)
     }
 
+    /** Persist a catalog comparison bound to a verified observation manifest. */
+    suspend fun archiveCatalogComparison(experimentId: String, periodDays: Double, status: String): String =
+        withContext(Dispatchers.IO) {
+            require(periodDays.isFinite() && periodDays > 0)
+            require(status in setOf("CATALOG_PERIOD_OR_HARMONIC_MATCH", "CATALOG_PERIODS_INCOMPLETE",
+                "NO_PERIOD_MATCH_IN_QUERIED_TABLES; NOVELTY_UNVERIFIED", "CATALOG_CHECK_INCOMPLETE"))
+            val evidence = FitsEvidenceStore(java.io.File(context.filesDir, "fits_evidence"))
+            val manifests = ExperimentManifestStore(java.io.File(context.filesDir, "experiment_manifests"), evidence)
+            val manifest = manifests.readVerified(experimentId)
+            val root = java.io.File(context.filesDir, "catalog_comparisons")
+            check(root.isDirectory || root.mkdirs())
+            val id = java.util.UUID.randomUUID().toString()
+            val body = "schema=1\nexperiment=$experimentId\nmanifest=${FitsEvidenceStore.sha256(manifest.toString().toByteArray(Charsets.UTF_8))}\ncreated=${System.currentTimeMillis()}\nperiod_days=$periodDays\ntables=pscomppars,toi\nrelative_tolerance=0.02\nharmonics=0.5,1,2\nstatus=$status\n"
+            val payload = (body + FitsEvidenceStore.sha256(body.toByteArray(Charsets.UTF_8)) + "\n").toByteArray(Charsets.UTF_8)
+            val temp = java.io.File.createTempFile("catalog-", ".tmp", root)
+            try {
+                temp.outputStream().use { it.write(payload); it.fd.sync() }
+                check(temp.renameTo(java.io.File(root, "$id.comparison")))
+            } finally { temp.delete() }
+            id
+        }
+
     fun getCuratedTargets(): List<MastObservationTarget> = curatedPresets
 
     /**
