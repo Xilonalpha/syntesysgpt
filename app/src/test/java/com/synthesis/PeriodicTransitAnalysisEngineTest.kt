@@ -66,6 +66,21 @@ class PeriodicTransitAnalysisEngineTest {
         )
 
         assertTrue("Periodic transit should be detected", result.isDetected)
+        val diagnostic = requireNotNull(result.residualNoise)
+        assertTrue(diagnostic.adjacentPairs > 10)
+        assertTrue(diagnostic.completeBlocks >= 5)
+        assertEquals(dt, diagnostic.cadenceDays, 1e-8)
+        fun adjusted(beta: Double) = result.copy(transitSnr = 12.0,
+            residualNoise = diagnostic.copy(blockNoiseRatio = beta)).blockAdjustedSnr
+        assertEquals(12.0, adjusted(0.5)!!, 1e-12)
+        assertEquals(12.0, adjusted(1.0)!!, 1e-12)
+        assertEquals(4.0, adjusted(3.0)!!, 1e-12)
+        assertNull(adjusted(Double.NaN))
+        assertNull(adjusted(-1.0))
+        assertNull(result.copy(residualNoise = null).blockAdjustedSnr)
+        assertNull(result.copy(transitSnr = Double.POSITIVE_INFINITY).blockAdjustedSnr)
+        assertTrue(result.copy(residualNoise = diagnostic.copy(blockNoiseRatio = 3.0)).isDetected)
+
         // Check period accuracy (within 5% of 1.5 days)
         val periodError = abs(result.bestPeriodDays - truePeriod) / truePeriod
         assertTrue("Detected period (${result.bestPeriodDays}) should match true period ($truePeriod) within 5%", periodError < 0.05)
