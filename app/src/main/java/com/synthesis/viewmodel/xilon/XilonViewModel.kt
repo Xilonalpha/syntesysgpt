@@ -196,29 +196,33 @@ class XilonViewModel @Inject constructor(
         }
     }
 
+    private val _sparkError = MutableStateFlow<String?>(null)
+    val sparkError = _sparkError.asStateFlow()
+
     fun runSparkAnalysis() {
+        if (_isSparkRunning.value) return
         val current = _uiState.value
-        val points = if (current is XilonUiState.Success) {
-            current.result.lightCurveSample
-        } else emptyList()
-
-        val ticId = if (current is XilonUiState.Success) {
-            current.result.star.ticId
-        } else "TIC-SPARK-STREAM"
-
-        val period = if (current is XilonUiState.Success) {
-            current.result.orbitalPeriodDays
-        } else 3.8425
-
+        _sparkReport.value = null
+        _sparkError.value = null
+        if (current !is XilonUiState.Success) {
+            _sparkError.value = "Measured folded photometry required"
+            return
+        }
+        _isSparkRunning.value = true
         viewModelScope.launch {
-            _isSparkRunning.value = true
-            val report = synthesisSparkEngine.executeDistributedTransitSearch(
-                ticId = ticId,
-                points = points,
-                nominalPeriodDays = period
-            )
-            _sparkReport.value = report
-            _isSparkRunning.value = false
+            try {
+                _sparkReport.value = synthesisSparkEngine.executeDistributedTransitSearch(
+                    ticId = current.result.star.ticId,
+                    points = current.result.lightCurveSample,
+                    nominalPeriodDays = current.result.orbitalPeriodDays
+                )
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _sparkError.value = e.message ?: "SPARK analysis incomplete"
+            } finally {
+                _isSparkRunning.value = false
+            }
         }
     }
 
