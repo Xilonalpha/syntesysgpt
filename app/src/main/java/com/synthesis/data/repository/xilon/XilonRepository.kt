@@ -200,8 +200,10 @@ class XilonRepository @Inject constructor(
         minPeriodDays: Double, maxPeriodDays: Double): com.synthesis.domain.model.exoplanet.PeriodicTransitDetectionResult? =
         withContext(Dispatchers.Default) {
             require(!observation.experimentId.isNullOrBlank() && observation.products.isNotEmpty())
+            val star = fetchStarProperties(observation.target.ticId).getOrThrow()
             com.synthesis.service.PeriodicTransitAnalysisEngine(com.synthesis.engine.exoplanet.BayesianUncertaintyEngine())
-                .searchAdditionalSignal(observation.dataPoints, observation.periodicDetection, minPeriodDays, maxPeriodDays)
+                .searchAdditionalSignal(observation.dataPoints, observation.periodicDetection, minPeriodDays, maxPeriodDays,
+                    star.radiusSun ?: Double.NaN, star.massSun ?: Double.NaN, star.teff ?: Double.NaN)
         }
 
     suspend fun runIndependentSearch(
