@@ -47,4 +47,11 @@ class MultiSectorHarmonicStitcherEngine @Inject constructor() {
         stellarTeffK: Double,
         monitoredGaps: List<Pair<Double, Double>> = emptyList() // Active camera windows (start, end)
     ): HarmonicStitchCandidate { throw UnsupportedOperationException("Requires measured cadence coverage and detection completeness; no unique period established") }
+
+    /** Nominal aliases only; no coverage-based exclusions. */
+    fun enumerateMeasuredAliases(firstEpoch: Double, secondEpoch: Double,
+        firstErrorDays: Double, secondErrorDays: Double, correlation: Double,
+        minPeriodDays: Double, maxPeriodDays: Double): List<OrbitalAlias> =
+        OrbitalAliasPhysics.enumerate(firstEpoch, secondEpoch, firstErrorDays,
+            secondErrorDays, correlation, minPeriodDays, maxPeriodDays)
 }
