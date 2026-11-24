@@ -194,11 +194,12 @@ class DeepHuntViewModel @Inject constructor(
                                 try {
                                     val audit = mastSynchronization.followUpArchivedTiming(
                                         requireNotNull(result.experimentId), b.bestPeriodDays, 2)
+                                    val reportHash = mastSynchronization.persistTimingReport(audit)
                                     val check = mastSynchronization.validateArchivedSectors(
                                         requireNotNull(result.experimentId), sectors.first(), sectors.last())
                                     val samePeriod = kotlin.math.abs(check.ephemeris.periodDays - b.bestPeriodDays) /
                                         b.bestPeriodDays <= 0.01
-                                    "; follow-up ${audit.matchingChecks}/${audit.checks.size}: ${audit.status}; sectors ${check.trainingSector}/${check.heldOutSector}: " +
+                                    "; report=$reportHash; follow-up ${audit.matchingChecks}/${audit.checks.size}: ${audit.status}; sectors ${check.trainingSector}/${check.heldOutSector}: " +
                                         (if (check.allCompatible && samePeriod) "conditional timing compatibility"
                                         else "compatibility not established") +
                                         "; ${check.comparisons.size} measured events; not confirmation"
