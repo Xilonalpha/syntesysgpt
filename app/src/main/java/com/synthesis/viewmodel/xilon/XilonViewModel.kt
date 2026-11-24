@@ -347,6 +347,9 @@ class XilonViewModel @Inject constructor(
                 if (bls.isDetected && sectors.size >= 2) {
                     _independentStatus.value += " | Checking held-out sector..."
                     try {
+                        val audit = mastSynchronization.followUpArchivedTiming(
+                            requireNotNull(result.experimentId), bls.bestPeriodDays)
+                        _independentStatus.value += " | Follow-up: ${audit.matchingChecks}/${audit.checks.size} compatible; ${audit.status}"
                         val check = mastSynchronization.validateArchivedSectors(
                             requireNotNull(result.experimentId), sectors.first(), sectors.last())
                         val samePeriod = kotlin.math.abs(check.ephemeris.periodDays - bls.bestPeriodDays) /
