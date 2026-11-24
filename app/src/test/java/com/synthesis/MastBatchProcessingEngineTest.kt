@@ -106,8 +106,7 @@ class MastBatchProcessingEngineTest {
     fun testCampaignPresetsAndBulkQueueing() {
         println("=== TEST: BATCH PROCESSING ENGINE - QUEUEING & PRESETS ===")
         val campaigns = batchEngine.getAvailableCampaigns()
-        assertTrue("Should offer campaigns", campaigns.isNotEmpty())
-        assertTrue("Should include Habitable Zone campaign", campaigns.any { it.id == "camp_habitable_zone" })
+        assertTrue("No unverified campaign presets", campaigns.isEmpty())
 
         // Test bulk text parsing
         val rawInput = "384159646, 268301217, 100100827; 25155310\n388104525"
@@ -128,7 +127,7 @@ class MastBatchProcessingEngineTest {
     }
 
     @Test
-    fun testBatchExecutionAndAutomatedDiscovery() = runBlocking {
+    fun testBatchRejectsPhaseOnlyFixture() = runBlocking {
         println("=== TEST: BATCH PROCESSING ENGINE - EXECUTION & AUTO-DISCOVERY ===")
         savedEntities.clear()
 
@@ -160,25 +159,12 @@ class MastBatchProcessingEngineTest {
 
         val completedJobs = batchEngine.jobs.value
         val job = completedJobs.first()
-        assertEquals(MastBatchJobStatus.COMPLETED, job.status)
-        assertNotNull(job.result)
-        assertTrue("Photometric points should be analyzed", (job.result?.dataPoints?.size ?: 0) >= 30)
-        assertNotNull(job.candidatePeriodDays)
-        assertNotNull(job.candidateSnr)
-
-        // Verify summary
-        val sum = batchEngine.summary.value
-        assertEquals(1, sum.totalJobs)
-        assertEquals(1, sum.completedCount)
-        assertEquals(0, sum.queuedCount)
-
-        // If candidate met discovery criteria, it should be auto-saved in Room repository
-        if (job.isCandidateDiscovered) {
-            assertTrue("Candidate must be saved to Room", savedEntities.isNotEmpty())
-            val saved = savedEntities.first()
-            assertTrue("Saved title must contain TIC", saved.title.contains("384159646"))
-            assertEquals("EXOPLANET", saved.researchCategory)
-            println("Auto-saved discovery in Room: ${saved.title}")
-        }
+        assertFalse("Processing must terminate", batchEngine.isRunning.value)
+        assertEquals(MastBatchJobStatus.FAILED, job.status)
+        assertNull(job.result)
+        assertFalse(job.isCandidateDiscovered)
+        assertEquals(1, batchEngine.summary.value.failedCount)
+        assertEquals(0, batchEngine.summary.value.completedCount)
+        assertTrue("Unverified observations must not be saved", savedEntities.isEmpty())
     }
 }
