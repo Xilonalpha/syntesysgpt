@@ -38,8 +38,8 @@ class XilonRepository @Inject constructor(
     fun getSavedDiscoveries(): Flow<List<XilonDiscoveryEntity>> = kotlinx.coroutines.flow.flowOf(emptyList())
 
     private fun sanitizeSectorForResult(result: XilonDetectionResult): String {
-        val raDeg = result.star.ra ?: result.astrometry?.raDeg ?: 0.0
-        val decDeg = result.star.dec ?: result.astrometry?.decDeg ?: 0.0
+        val raDeg = result.star.ra ?: result.astrometry?.raDeg
+        val decDeg = result.star.dec ?: result.astrometry?.decDeg
         val claimed = result.sector.ifBlank { "Sector necunoscut" }
         val audit = tessHeasarcValidationEngine.auditTessPointing(
             ticId = result.star.ticId,
