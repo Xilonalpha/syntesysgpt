@@ -720,6 +720,53 @@ class PeriodicTransitAnalysisEngine @Inject constructor(
         return 1.482602218505602 * madRaw // Normal distribution consistent scale
     }
 
+    /**
+     * Exploratory sequential search. Accepted signals are not confirmed planets.
+     * Masks only accepted transit windows; never masks a rejected binary candidate.
+     * Original samples and their uncertainties remain unchanged.
+     */
+    fun searchMultipleSignals(
+        times: List<Double>, fluxes: List<Double>, errors: List<Double>,
+        minPeriodDays: Double = 0.5, maxPeriodDays: Double = 10.0,
+        maxSignals: Int = 3
+    ): List<PeriodicTransitDetectionResult> {
+        require(maxSignals in 1..5)
+        require(minPeriodDays.isFinite() && maxPeriodDays.isFinite() &&
+            minPeriodDays >= 0.02 && maxPeriodDays > minPeriodDays)
+        require(times.size == fluxes.size && times.size == errors.size)
+        require(times.all { it.isFinite() } && times.distinct().size == times.size)
+        require(fluxes.all { it.isFinite() } && errors.all { it.isFinite() && it > 0 })
+        var remaining = times.indices.toList()
+        val results = mutableListOf<PeriodicTransitDetectionResult>()
+        repeat(maxSignals) {
+            if (remaining.size < 8) return results.toList()
+            val result = runBlsPipeline(remaining.map { times[it] },
+                remaining.map { fluxes[it] }, remaining.map { errors[it] },
+                minPeriodDays, maxPeriodDays)
+            if (!result.isDetected) return results.toList()
+            val period = result.bestPeriodDays
+            val epoch = result.epochBjd
+            val halfWindow = result.transitDurationHours / 24.0 * 0.75
+            if (!period.isFinite() || period <= 0 || !epoch.isFinite() ||
+                !halfWindow.isFinite() || halfWindow <= 0 || halfWindow >= period / 2)
+                return results.toList()
+            // Stop rather than counting a repeated period or a simple harmonic as a new planet.
+            if (results.any { previous ->
+                listOf(0.5, 1.0, 2.0).any { ratio ->
+                    abs(period / (previous.bestPeriodDays * ratio) - 1.0) < 0.02
+                }
+            }) return results.toList()
+            val next = remaining.filter { index ->
+                val cycles = (times[index] - epoch) / period
+                abs(cycles - round(cycles)) * period > halfWindow
+            }
+            if (next.size == remaining.size) return results.toList()
+            results.add(result)
+            remaining = next
+        }
+        return results.toList()
+    }
+
     private fun fallbackNoDetection(message: String): PeriodicTransitDetectionResult {
         val dummyVetting = TransitVettingMetrics(
             oddTransitDepthPpm = 0.0,
