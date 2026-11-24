@@ -110,6 +110,20 @@ class MastDataSynchronizationService @Inject constructor(
             id
         }
 
+    suspend fun readArchivedMetrics(experimentId: String, runId: String): ExperimentResultStore.Metrics =
+        withContext(Dispatchers.IO) {
+            val evidence = FitsEvidenceStore(java.io.File(context.filesDir, "fits_evidence"))
+            val manifests = ExperimentManifestStore(java.io.File(context.filesDir, "experiment_manifests"), evidence)
+            ExperimentResultStore(java.io.File(context.filesDir, "experiment_results"), manifests).read(experimentId, runId)
+        }
+
+    suspend fun archivedRunHistory(experimentId: String): ExperimentResultStore.History =
+        withContext(Dispatchers.IO) {
+            val evidence = FitsEvidenceStore(java.io.File(context.filesDir, "fits_evidence"))
+            val manifests = ExperimentManifestStore(java.io.File(context.filesDir, "experiment_manifests"), evidence)
+            ExperimentResultStore(java.io.File(context.filesDir, "experiment_results"), manifests).history(experimentId)
+        }
+
     suspend fun listArchivedExperiments(offset: Int = 0): ExperimentManifestStore.ArchivePage =
         withContext(Dispatchers.IO) {
             val evidence = FitsEvidenceStore(java.io.File(context.filesDir, "fits_evidence"))
