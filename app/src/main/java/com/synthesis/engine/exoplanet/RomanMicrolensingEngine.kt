@@ -36,43 +36,20 @@ class RomanMicrolensingEngine @Inject constructor() {
         require(event.einsteinCrossingTimeDays.isFinite() && event.einsteinCrossingTimeDays > 0)
         require(event.impactParameterU0.isFinite() && event.impactParameterU0 > 0)
         val points = mutableListOf<MicrolensingCurvePoint>()
-        val span = max(0.1, event.einsteinCrossingTimeDays * 1.5)
+        val span = event.einsteinCrossingTimeDays * 1.5
         val dt = (2.0 * span) / steps.toDouble()
-
-        // If binary lens, planetary anomaly time & width
-        val anomalyTime = if (!event.isFreeFloatingPlanet && event.separationS != null) {
-            span * 0.25 // slight offset after peak
-        } else null
-
-        val anomalyDuration = if (event.massRatioQ != null) {
-            max(0.01, event.einsteinCrossingTimeDays * sqrt(event.massRatioQ))
-        } else 0.05
 
         for (i in 0..steps) {
             val t = -span + i * dt
-            val u = sqrt(event.impactParameterU0.pow(2.0) + (t / max(0.001, event.einsteinCrossingTimeDays)).pow(2.0))
+            val u = sqrt(event.impactParameterU0.pow(2.0) + (t / event.einsteinCrossingTimeDays).pow(2.0))
             val baseA = paczynskiMagnification(u)
-
-            var deltaA = 0.0
-            var isCaustic = false
-
-            if (anomalyTime != null && event.massRatioQ != null) {
-                val distToAnomaly = abs(t - anomalyTime)
-                if (distToAnomaly < anomalyDuration * 2.0) {
-                    val gaussianAnomaly = exp(-0.5 * (distToAnomaly / (anomalyDuration * 0.5)).pow(2.0))
-                    deltaA = baseA * 0.35 * gaussianAnomaly
-                    if (distToAnomaly < anomalyDuration * 0.6) {
-                        isCaustic = true
-                    }
-                }
-            }
 
             points.add(
                 MicrolensingCurvePoint(
-                    timeDays = (t * 1000.0).roundToLong() / 1000.0,
-                    magnification = ((baseA + deltaA) * 1000.0).roundToLong() / 1000.0,
-                    planetaryAnomalyDeltaA = (deltaA * 1000.0).roundToLong() / 1000.0,
-                    isCausticCrossing = isCaustic
+                    timeDays = t,
+                    magnification = baseA,
+                    planetaryAnomalyDeltaA = 0.0,
+                    isCausticCrossing = false
                 )
             )
         }
@@ -108,23 +85,19 @@ class RomanMicrolensingEngine @Inject constructor() {
             // Lens itself is the planet
             (thetaEMas.pow(2.0)) / (kappa * (piRel * 1000.0))
         } else {
-            // Primary lens is a star, planet is q * M_*
-            val primaryMassSolar = (thetaEMas.pow(2.0)) / (kappa * (piRel * 1000.0))
-            primaryMassSolar * requireNotNull(event.massRatioQ)
+            // Einstein radius assumed to describe total binary lens mass.
+            val totalMassSolar = (thetaEMas.pow(2.0)) / (kappa * (piRel * 1000.0))
+            totalMassSolar * (requireNotNull(event.massRatioQ) / (1.0 + event.massRatioQ))
         }
 
+        require(massSolar.isFinite() && massSolar > 0)
         val massEarth = massSolar * 333000.0
+        require(massEarth.isFinite())
         val massJupiter = massEarth / 317.8
 
         val crossingHours = event.einsteinCrossingTimeDays * 24.0
 
-        val causticStructure = if (event.isFreeFloatingPlanet) {
-            "Punctiform Izolat (Fără structură de caustică stelară - Planetă Orfană FFP)"
-        } else {
-            val s = event.separationS ?: 1.0
-            if (s > 1.0) "Caustice Planetare Triangulare (Separare Largă s = ${String.format("%.2f", s)})"
-            else "Caustică Centrală Închisă (Separare Strânsă s = ${String.format("%.2f", s)})"
-        }
+        val causticStructure = "Not assessed: point-lens approximation only"
 
         val summary = "Conditional mass estimate assuming 6.5 mas/yr proper motion and supplied distances. Synthetic illustrative curve; no planet confirmation or binary-lens fit."
 
