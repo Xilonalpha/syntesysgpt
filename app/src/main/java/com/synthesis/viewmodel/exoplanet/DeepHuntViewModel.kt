@@ -199,6 +199,35 @@ class DeepHuntViewModel @Inject constructor(
                             primarySummary + if (extra != null) {
                                 val catalog = xilonRepository.compareCatalogPeriods(tic, extra.bestPeriodDays)
                                 val signalId = mastSynchronization.archiveAdditionalSignal(requireNotNull(result.experimentId), b, extra, lower, upper, catalog)
+                                val star = xilonRepository.fetchStarProperties(tic).getOrThrow()
+                                val payload = com.google.gson.JsonObject().apply {
+                                    addProperty("experiment_id", requireNotNull(result.experimentId))
+                                    addProperty("additional_signal_id", signalId)
+                                    addProperty("tic", tic)
+                                    addProperty("period_days", extra.bestPeriodDays)
+                                    addProperty("depth_ppm", extra.transitDepthPpm)
+                                    addProperty("duration_hours", extra.transitDurationHours)
+                                    addProperty("snr", extra.transitSnr)
+                                    addProperty("sector", result.target.sectorOrQuarter)
+                                    addProperty("catalog_status", catalog)
+                                    addProperty("comparison_evidence", signalId)
+                                    addProperty("vetting_status", if (!extra.vetting.isSecondaryEclipseDetected &&
+                                        extra.vetting.isOddEvenConsistent && extra.vetting.isDurationPhysical)
+                                        "PRELIMINARY_SCREEN_PASSED" else "VETTING_FLAG")
+                                    star.tMag?.takeIf { it.isFinite() }?.let { addProperty("tmag", it) }
+                                    star.radiusSun?.takeIf { it.isFinite() }?.let { addProperty("stellar_radius", it) }
+                                    star.massSun?.takeIf { it.isFinite() }?.let { addProperty("stellar_mass", it) }
+                                    star.teff?.takeIf { it.isFinite() }?.let { addProperty("stellar_teff", it) }
+                                    star.distancePc?.takeIf { it.isFinite() }?.let { addProperty("distance_pc", it) }
+                                }
+                                synthesizedResearchRepository.saveResearch(com.synthesis.data.local.entity.SynthesizedResearchEntity(
+                                    id = "independent-tess:${result.experimentId}:$signalId",
+                                    title = "Semnal suplimentar nevalidat: TIC $tic",
+                                    targetName = "TIC $tic", researchCategory = "EXOPLANET",
+                                    summary = "Masked BLS; same observations; $catalog",
+                                    synthesizedDataJson = payload.toString(), confidenceScore = 0f,
+                                    sourceCount = result.products.size, isVerified = false
+                                ))
                                 "\nAdditional exploratory signal: P=${extra.bestPeriodDays} d; SNR=${extra.transitSnr}; $catalog; archive=$signalId; not independently validated"
                             } else "\nAdditional search: no accepted signal in $lower–$upper d (not a completeness claim)"
                         } else primarySummary
