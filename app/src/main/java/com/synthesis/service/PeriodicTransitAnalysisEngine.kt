@@ -178,7 +178,16 @@ class PeriodicTransitAnalysisEngine @Inject constructor(
 
         val fMin = 1.0 / pMax
         val fMax = 1.0 / pMin
-        val freqStep = (fMax - fMin) / periodSteps.coerceAtLeast(20)
+        // Limit accumulated phase drift to half the narrowest representable box.
+        // Fail explicitly rather than silently undersample a long baseline.
+        val minDuty = max(0.01, 1.0 / nPhaseBins)
+        val requiredSteps = ceil((fMax - fMin) * tSpan * 2.0 / minDuty)
+        val maxGridSteps = min(100000, 200000000 / nClean)
+        val gridSteps = max(periodSteps.toDouble(), requiredSteps)
+        if (!gridSteps.isFinite() || gridSteps > maxGridSteps)
+            return fallbackNoDetection("Rezoluție BLS necesară peste buget: $gridSteps pași, limită $maxGridSteps. Restrânge intervalul de perioade.")
+        val scanSteps = gridSteps.toInt()
+        val freqStep = (fMax - fMin) / scanSteps
 
         // Trial duty cycles (duration fractions q = tau / P)
         val trialQList = listOf(0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.10, 0.12)
@@ -192,7 +201,7 @@ class PeriodicTransitAnalysisEngine @Inject constructor(
         var bestQ = 0.03
 
         // 5. BLS Periodogram Scanning Loop
-        for (step in 0..periodSteps) {
+        for (step in 0..scanSteps) {
             val freq = fMin + (step * freqStep)
             val period = 1.0 / freq
 
@@ -474,7 +483,7 @@ class PeriodicTransitAnalysisEngine @Inject constructor(
             val baseline = ySorted.indices.sumOf { weights[it]*(ySorted[it]-ym).pow(2) }
             val c = DoubleArray(n)
             val z = DoubleArray(n)
-            for (step in 0..periodSteps) {
+            for (step in 0..scanSteps) {
                 val f = fMin + step * freqStep
                 var cm = 0.0; var zm = 0.0
                 for (i in 0 until n) {
