@@ -48,34 +48,20 @@ class PhotometricFileParser @Inject constructor(
             else -> "\\s+"
         }
 
-        // Header detection
-        var bjdIdx = 0
-        var fluxIdx = 1
-        var errIdx = 2
-        var startLine = 0
+        // Explicit time scale and matching target/error columns are required.
+        val headers = lines.first().split(Regex(delimiter)).map { it.trim().lowercase(java.util.Locale.ROOT) }
+        val timeColumns = headers.indices.filter { headers[it] in setOf("bjd_tdb", "bjd-tdb") }
+        val fluxColumns = headers.indices.filter { headers[it] in setOf("relative_flux", "rel_flux", "normalized_flux") || headers[it].matches(Regex("rel_flux_t[0-9]+")) }
+        require(timeColumns.size == 1 && fluxColumns.size == 1) { "Exactly one BJD_TDB and relative flux column required" }
+        val bjdIdx = timeColumns.single()
+        val fluxIdx = fluxColumns.single()
+        val fluxName = headers[fluxIdx]
+        val errorNames = if (fluxName.startsWith("rel_flux_t")) setOf(fluxName.replace("rel_flux_t", "rel_flux_err_t")) else setOf("flux_error", "flux_err", "relative_flux_error", "rel_flux_err", "normalized_flux_error")
+        val errorColumns = headers.indices.filter { headers[it] in errorNames }
+        require(errorColumns.size == 1) { "Exactly one matching flux uncertainty column required" }
+        val errIdx = errorColumns.single()
 
-        val headerTokens = lines[0].split(Regex(delimiter)).map { it.trim().lowercase() }
-        val hasHeader = headerTokens.any { it.contains("bjd") || it.contains("flux") || it.contains("jd") || it.contains("mag") || it.contains("time") }
-
-        if (hasHeader) {
-            startLine = 1
-            bjdIdx = -1
-            fluxIdx = -1
-            errIdx = -1
-            headerTokens.forEachIndexed { index, token ->
-                val isErr = token.contains("err") || token.contains("uncert") || token.contains("sigma")
-                if (isErr && (token.contains("flux") || token in setOf("error", "err", "sigma", "uncertainty"))) {
-                    errIdx = index
-                } else if (!isErr && (token.contains("rel_flux") || token.contains("relative_flux") || token.contains("normalized_flux") || token == "flux")) {
-                    fluxIdx = index
-                } else if (token == "bjd" || token == "bjd_tdb" || token == "bjd-tdb") {
-                    bjdIdx = index
-                }
-            }
-            require(bjdIdx >= 0 && fluxIdx >= 0 && errIdx >= 0 && setOf(bjdIdx, fluxIdx, errIdx).size == 3) { "Required BJD, relative flux and flux uncertainty columns missing" }
-        }
-
-        for (i in startLine until lines.size) {
+        for (i in 1 until lines.size) {
             val line = lines[i]
             val tokens = line.split(Regex(delimiter)).map { it.trim() }
             if (tokens.size < 2) continue
@@ -98,6 +84,7 @@ class PhotometricFileParser @Inject constructor(
 
         // Sort chronologically
         rawPoints.sortBy { it.first }
+        require(rawPoints.zipWithNext().all { (a, b) -> b.first > a.first }) { "Duplicate photometric timestamps" }
 
         val firstBjd = rawPoints.first().first
         val lastBjd = rawPoints.last().first
