@@ -70,6 +70,31 @@ class PureTicCatalogRepository @Inject constructor(
                     String.format(Locale.US, "; SNR ajustat %.2f; beta %.2f; rho1 %.3f; diagnostic necalibrat", adjusted, beta, rho)
                 else "; diagnostic zgomot indisponibil"
 
+                val phaseNote = when (j.get("phase_validation")?.asString) {
+                    "CONDITIONAL_TIMING_COMPATIBILITY" -> {
+                        val phase = j.get("phase_evidence")?.takeIf { it.isJsonObject }?.asJsonObject
+                        val valid = runCatching {
+                            phase != null && additional == null &&
+                                phase.get("allCompatible").asBoolean &&
+                                phase.get("trainingSector").asInt > 0 &&
+                                phase.get("heldOutSector").asInt > phase.get("trainingSector").asInt &&
+                                phase.getAsJsonArray("comparisons").size() >= 2 &&
+                                phase.getAsJsonArray("comparisons").all {
+                                    it.asJsonObject.get("compatible").asBoolean &&
+                                        it.asJsonObject.get("cycleUnambiguous").asBoolean
+                                } &&
+                                abs(phase.getAsJsonObject("ephemeris").get("periodDays").asDouble -
+                                    number("period_days")) / number("period_days") <= 0.01
+                        }.getOrDefault(false)
+                        if (valid) "; compatibilitate temporala conditionata raportata; dovezi nereverificate la afisare"
+                        else "; dovezi temporale incomplete sau inconsistente"
+                    }
+                    "COMPATIBILITY_NOT_ESTABLISHED" -> "; compatibilitate temporala nestabilita"
+                    "ASSESSMENT_INCOMPLETE" -> "; evaluare multisector incompleta"
+                    "NOT_ASSESSED_ADDITIONAL_SIGNAL" -> "; semnal suplimentar fara validare temporala proprie"
+                    else -> "; validare temporala indisponibila"
+                }
+
                 PureTicCandidate(
                     ticId = tic, name = "TIC $tic", sector = string("sector"),
                     apparentMag = j.get("tmag").asDouble.also { require(it.isFinite()) },
@@ -80,7 +105,7 @@ class PureTicCatalogRepository @Inject constructor(
                     discoveryOrigin = if (additional == null) "Analiza fotometrica TESS independenta" else "Cautare BLS suplimentara pe aceleasi observatii",
                     whyNoToi = "Fara potrivire de perioada in tabelele interogate; noutate neconfirmata",
                     potentialPlanetaryType = "Semnal de tranzit nevalidat",
-                    scientificNotes = "Experiment: $experiment; comparatie: $evidence; filtrare preliminara trecuta, validare independenta necesara" + noiseNote,
+                    scientificNotes = "Experiment: $experiment; comparatie: $evidence; filtrare preliminara trecuta, validare independenta necesara" + noiseNote + phaseNote,
                     scientificPriority = "TRIAJ OBSERVATIONAL • SNR ${String.format(Locale.US, "%.1f", snr)} (necalibrat)",
                     isLiveIngested = true, ingestionTimestamp = row.timestamp, snrSigma = snr
                 )
