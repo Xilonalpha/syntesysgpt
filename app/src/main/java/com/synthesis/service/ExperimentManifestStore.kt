@@ -97,5 +97,24 @@ class ExperimentManifestStore(private val root: File, private val evidence: Fits
         return ProvenanceComparison.DISTINCT_ARCHIVED_PRODUCTS
     }
 
+    /** Bind caller-reported outcomes to verified archived products.
+     * Sector grouping is conservative; outcome and upstream authenticity are not certified. */
+    data class ArchivedOutcome(val experimentId: String, val sector: Int, val method: String,
+        val outcome: com.synthesis.engine.validation.ResearchEvidenceLedger.Outcome)
+
+    fun summarizeArchivedOutcomes(hypothesisKey: String, outcomes: List<ArchivedOutcome>):
+        com.synthesis.engine.validation.ResearchEvidenceLedger.Summary {
+        require(hypothesisKey.isNotBlank() && outcomes.isNotEmpty() && outcomes.size <= 100)
+        val manifests = outcomes.map { it.experimentId }.distinct().associateWith { readVerified(it) }
+        val entries = outcomes.map { row ->
+            val manifest = manifests.getValue(row.experimentId)
+            val source = manifest.sources.single { it.sector == row.sector }
+            com.synthesis.engine.validation.ResearchEvidenceLedger.Evidence(
+                "TIC:${manifest.tic}", hypothesisKey, "TIC:${manifest.tic}:sector:${source.sector}",
+                source.sha256, row.method, row.outcome)
+        }
+        return com.synthesis.engine.validation.ResearchEvidenceLedger.summarize(entries)
+    }
+
     data class Source(val uri: String, val sha256: String, val sector: Int, val points: Int)
 }
