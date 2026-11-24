@@ -31,7 +31,9 @@ class HypothesisEngine @Inject constructor() {
         require(observations.all { it.investigationId == investigationId })
         require(anomalies.all { it.investigationId == investigationId })
         require(correlations.all { it.investigationId == investigationId })
+        require(observations.all { it.id.isNotBlank() })
         val observationIds = observations.map { it.id }.toSet()
+        require(observationIds.size == observations.size)
         require(anomalies.all { it.observationId in observationIds })
         fun proposal(title: String, description: String, test: String, data: String) = Hypothesis(
             id = java.util.UUID.nameUUIDFromBytes((investigationId + ":hypothesis:" + title).toByteArray(Charsets.UTF_8)).toString(), investigationId = investigationId,
@@ -49,7 +51,7 @@ class HypothesisEngine @Inject constructor() {
         )
         return if (patterns.isEmpty()) proposals else proposals + proposal(
             "Robust outlier follow-up",
-            "Exploratory flags for observation IDs: " + patterns.flatMap { it.involvedObservations }.distinct().joinToString(),
+            "Exploratory flags for observation IDs: " + patterns.flatMap { it.involvedObservations }.distinct().sorted().joinToString(),
             "Repeat measurements and test calibration and selection effects",
             "Independent measurements and instrument uncertainty"
         )
