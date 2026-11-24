@@ -6,6 +6,10 @@ on:
         description: Experimental stellar duration constraint
         type: boolean
         default: false
+      detrend:
+        description: Experimental fixed-scale median detrending
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -97,6 +101,8 @@ jobs:
           python scripts/prepare_tess.py "$FITS" evidence/observations.csv --tic "$TIC"
           mapfile -t STELLAR < <(python -c 'import json,math; r=json.load(open("evidence/catalog_reference.json")); assert r["status"]=="PASS"; row=r["catalog_rows"][0]; print("\n".join(str(v) if isinstance(v,(int,float)) and math.isfinite(v) and v>0 else "NaN" for v in (row.get("st_rad"),row.get("st_mass"),row.get("st_teff"))))')
           [[ ${#STELLAR[@]} == 3 ]]
+          export XILON_DETREND=0
+          if [[ "${{ inputs.detrend }}" == "true" ]]; then export XILON_DETREND=1; fi
           MODE=()
           if [[ "${{ inputs.constrained }}" == "true" ]]; then MODE+=(constrained); fi
           bash scripts/run_tess_validation.sh evidence/observations.csv "$EXPECTED" "$FITS" "$TIC" "${STELLAR[@]}" "${MODE[@]}" 2>&1 | tee evidence/result.log
