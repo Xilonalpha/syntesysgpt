@@ -39,6 +39,25 @@ class TtvInversionEngine @Inject constructor() {
     }
 
 
+    data class TimingScatterDiagnostic(
+        val ephemeris: LinearEphemeris,
+        val reducedChiSquared: Double,
+        val rmsMinutes: Double,
+        val largestAbsoluteResidualMinutes: Double,
+        val eventCount: Int
+    )
+
+    /** Descriptive excess timing scatter, not a companion detection or calibrated p-value. */
+    fun diagnoseTimingScatter(observations: List<TransitTiming>): TimingScatterDiagnostic {
+        require(observations.size >= 5)
+        val fit = TransitTimingPhysics.fit(observations)
+        val residuals = fit.residuals.map { it.residualMinutes }
+        val reduced = fit.chiSquared / fit.degreesOfFreedom
+        val rms = sqrt(residuals.sumOf { it * it } / residuals.size)
+        require(reduced.isFinite() && reduced >= 0 && rms.isFinite())
+        return TimingScatterDiagnostic(fit, reduced, rms, residuals.maxOf { abs(it) }, observations.size)
+    }
+
     /** Conditional linear ephemeris; no companion inference. */
     fun fitMeasuredTimings(observations: List<TransitTiming>): LinearEphemeris =
         TransitTimingPhysics.fit(observations)
