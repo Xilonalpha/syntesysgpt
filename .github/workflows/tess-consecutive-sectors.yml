@@ -1,0 +1,80 @@
+name: TESS consecutive sector pilot
+on:
+  workflow_dispatch:
+    inputs:
+      detrend:
+        description: Experimental fixed-scale median detrending
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: TOI-712-b
+            catalog_name: 'TOI-712 b'
+            tic: '150151262'
+            period: '9.531361'
+          - target: TOI-776-b
+            catalog_name: 'TOI-776 b'
+            tic: '306996324'
+            period: '8.24661'
+          - target: TOI-837-b
+            catalog_name: 'TOI-837 b'
+            tic: '460205581'
+            period: '8.3248762'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install scientific dependencies
+        run: python -m pip install numpy==1.26.4 astropy==6.1.7 astroquery==0.4.10
+      - name: Run scientific integrity unit tests
+        run: python -m unittest discover -s scripts -p 'test_*.py' -v
+      - name: Install Kotlin compiler
+        run: |
+          curl --fail --location --retry 3 -o "$RUNNER_TEMP/kotlin.zip" https://github.com/JetBrains/kotlin/releases/download/v2.0.21/kotlin-compiler-2.0.21.zip
+          unzip -q "$RUNNER_TEMP/kotlin.zip" -d "$RUNNER_TEMP/kotlin"
+          echo "$RUNNER_TEMP/kotlin/kotlinc/bin" >> "$GITHUB_PATH"
+      - name: Record preselected validation inputs
+        env:
+          TIC: '${{ matrix.tic }}'
+          EXPECTED: '${{ matrix.period }}'
+        run: |
+          mkdir -p evidence
+          python -c 'import os,json,math; t=int(os.environ["TIC"]); e=os.environ["EXPECTED"]; assert t>0 and (e=="control" or (math.isfinite(float(e)) and float(e)>0)); print(json.dumps({"tic":t,"expected_period":e,"commit":os.environ["GITHUB_SHA"]},indent=2))' > evidence/validation_inputs.json
+      - name: Verify independent catalog identity
+        env:
+          PLANET: ${{ matrix.catalog_name }}
+          TIC: ${{ matrix.tic }}
+          EXPECTED: ${{ matrix.period }}
+        run: |
+          mkdir -p evidence
+          python scripts/verify_planet_reference.py --name "$PLANET" --tic "$TIC" --period "$EXPECTED" --output evidence/catalog_reference.json
+      - name: Download and analyze authentic observations
+        env:
+          TIC: '${{ matrix.tic }}'
+          EXPECTED: '${{ matrix.period }}'
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          export XILON_DETREND=0
+          if [[ "${{ inputs.detrend }}" == "true" ]]; then export XILON_DETREND=1; fi
+          bash scripts/run_tess_multisector_pilot.sh "$TIC" "$EXPECTED" 2>&1 | tee evidence/result.log
+      - name: Preserve evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tess-validation-${{ matrix.target }}
+          path: evidence/
+          if-no-files-found: warn
