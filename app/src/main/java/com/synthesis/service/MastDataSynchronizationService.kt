@@ -110,6 +110,13 @@ class MastDataSynchronizationService @Inject constructor(
             id
         }
 
+    suspend fun listArchivedExperiments(offset: Int = 0): ExperimentManifestStore.ArchivePage =
+        withContext(Dispatchers.IO) {
+            val evidence = FitsEvidenceStore(java.io.File(context.filesDir, "fits_evidence"))
+            ExperimentManifestStore(java.io.File(context.filesDir, "experiment_manifests"), evidence)
+                .listVerified(offset, 10)
+        }
+
     fun getCuratedTargets(): List<MastObservationTarget> = curatedPresets
 
     /**
