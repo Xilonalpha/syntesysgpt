@@ -113,7 +113,7 @@ class MastDataSynchronizationService @Inject constructor(
         }
 
     data class TimingAuditReport(val experimentId: String, val referencePeriodDays: Double,
-        val checks: List<ArchivedTimingAudit>, val matchingChecks: Int, val status: String)
+        val checks: List<ArchivedTimingAudit>, val matchingChecks: Int, val status: String, val reportHash: String? = null)
 
     suspend fun followUpArchivedTiming(experimentId: String, referencePeriodDays: Double,
         maxChecks: Int = 3): TimingAuditReport {
@@ -130,7 +130,14 @@ class MastDataSynchronizationService @Inject constructor(
             matching == checks.size -> "CONDITIONAL_COMPATIBILITY"
             else -> "COMPATIBILITY_NOT_ESTABLISHED"
         }
-        return TimingAuditReport(experimentId, referencePeriodDays, checks, matching, status)
+        val report = TimingAuditReport(experimentId, referencePeriodDays, checks, matching, status)
+        val hash = withContext(Dispatchers.IO) {
+            val evidence = FitsEvidenceStore(java.io.File(context.filesDir, "fits_evidence"))
+            val manifests = ExperimentManifestStore(java.io.File(context.filesDir, "experiment_manifests"), evidence)
+            ResearchReportStore(java.io.File(context.filesDir, "research_reports"), manifests)
+                .save(experimentId, com.google.gson.Gson().toJson(report))
+        }
+        return report.copy(reportHash = hash)
     }
 
     /** Offline replay; no network requests and no claim of scientific confirmation. */
