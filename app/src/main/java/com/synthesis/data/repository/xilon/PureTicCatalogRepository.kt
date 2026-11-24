@@ -52,10 +52,7 @@ class PureTicCatalogRepository @Inject constructor(
             targetType = "Pure TIC Candidate (Fără TOI)",
             knownClassification = "Neînregistrată NASA (Teren Virgin)",
             advisoryPriority = c.scientificPriority,
-            scientificReason = "${c.potentialPlanetaryType} | Adâncime: ${c.transitDepthPpm.toInt()} ppm, P: ${c.estimatedPeriodDays?.let { "${String.format(Locale.US, "%.2f", it)} d" } ?: "n/a"}, SNR: ${String.format(Locale.US, "%.1f", c.snrSigma)}σ",
-            raDeg = 0.0,
-            decDeg = 0.0,
-            sourceCatalog = "PURE_TIC"
+            scientificReason = "${c.potentialPlanetaryType} | Adâncime: ${c.transitDepthPpm.toInt()} ppm, P: ${c.estimatedPeriodDays?.let { "${String.format(Locale.US, "%.2f", it)} d" } ?: "n/a"}, SNR: ${String.format(Locale.US, "%.1f", c.snrSigma)}σ"
         )
     }
 
