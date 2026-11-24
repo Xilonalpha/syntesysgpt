@@ -120,7 +120,8 @@ class PeriodicTransitAnalysisEngine @Inject constructor(
         hostStarTeffK: Double = Double.NaN,
         nPhaseBins: Int = 100,
         periodSteps: Int = 600,
-        allowStellarRetry: Boolean = true
+        allowStellarRetry: Boolean = true,
+        allowPeakRetry: Boolean = true
     ): PeriodicTransitDetectionResult {
         val n = times.size
         if (n < 8 || fluxes.size != n || errors.size != n || times.any { !it.isFinite() } || fluxes.any { !it.isFinite() } || errors.any { !it.isFinite() || it <= 0.0 } || times.distinct().size != n || nPhaseBins < 6 || periodSteps < 20) {
@@ -401,6 +402,35 @@ class PeriodicTransitAnalysisEngine @Inject constructor(
         val shapePass = sinusoidComparable && boxLoss.isFinite() && sineLoss.isFinite() && boxLoss < sineLoss
         val binaryWarning = (oddTransits.isNotEmpty() && evenTransits.isNotEmpty() && !isOddEvenConsistent) || isSecDetected
         val isDetected = !binaryWarning && observedEvents >= 3 && sde >= 6.0 && depthPpm >= 300.0 && transitSnr >= 7.0 && deltaChiSq > 0.0 && shapePass
+
+        // Evaluate independent local maxima before giving up on a rejected global peak.
+        // Retain the original full-search SDE normalization; narrow searches must
+        // never manufacture a higher significance from their local background.
+        if (!isDetected && allowPeakRetry) {
+            val peaks = periodogram.indices.filter { i ->
+                i > 0 && i < periodogram.lastIndex &&
+                    powers[i] >= powers[i - 1] && powers[i] > powers[i + 1] &&
+                    (powers[i] - meanPower) / stdPower >= 6.0 &&
+                    abs(1.0 / periodogram[i].periodDays - 1.0 / bestPeriod) > 2 * freqStep
+            }.sortedByDescending { powers[it] }.take(5)
+            for (i in peaks) {
+                val peak = periodogram[i]
+                val candidate = runBlsPipeline(times, fluxes, errors,
+                    periodogram[i + 1].periodDays, periodogram[i - 1].periodDays,
+                    hostStarRadiusSolar, hostStarMassSolar, hostStarTeffK,
+                    nPhaseBins, 20, false, false)
+                // Narrow-grid SDE is not comparable to the global SDE.
+                // Require the existing full vetting as well as the global peak threshold.
+                if (candidate.isDetected) {
+                    val globalSde = (peak.power - meanPower) / stdPower
+                    return candidate.copy(signalDetectionEfficiencySde = globalSde,
+                        periodogram = periodogram,
+                        statusSummary = "Maxim BLS alternativ; SDE global = " +
+                            String.format("%.2f", globalSde) +
+                            ". Semnal preliminar; natura planetară nu este confirmată.")
+                }
+            }
+        }
 
         // Exploratory second pass: remove a dominant coherent sinusoid only when
         // the original search failed. Original observations remain untouched.
