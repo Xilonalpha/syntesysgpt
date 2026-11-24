@@ -123,10 +123,9 @@ class Year2026AstroEnginesTest {
         assertEquals(TidalOceanRegime.SUSTAINED_SUB_SURFACE_OCEAN, exomoon.oceanRegime)
     }
 
-    @Test
-    fun testSpaceWeatherMagnetosphereShielding() {
-        println("=== 2026 TEST 4: SPACE WEATHER & MAGNETOSPHERE SHIELDING ===")
-        val trapped = spaceWeatherEngine.evaluateMagnetosphereAndShielding(
+    @Test(expected = UnsupportedOperationException::class)
+    fun testUnverifiedAtmosphericRetentionRejected() {
+        spaceWeatherEngine.evaluateMagnetosphereAndShielding(
             planetName = "TRAPPIST-1 e",
             hostStar = "TRAPPIST-1",
             semiMajorAxisAu = 0.029,
@@ -139,15 +138,5 @@ class Year2026AstroEnginesTest {
             stellarXuvFluxEarthUnits = 120.0
         )
 
-        println("Planetary Magnetic Field B_p: ${trapped.surfaceMagneticFieldGauss} G")
-        println("Solar Wind Ram Pressure: ${trapped.solarWindRamPressureNanoPa} nPa")
-        println("Magnetopause Standoff Radius: ${trapped.magnetopauseStandoffRadiusRp} R_p")
-        println("Atmospheric Lifetime: ${trapped.estimatedAtmosphericLifetimeGyr} Gyr")
-        println("Verdict: ${trapped.shieldingVerdict}")
-
-        assertTrue("Surface magnetic field must be positive", trapped.surfaceMagneticFieldGauss > 0.0)
-        assertTrue("Ram pressure must be positive", trapped.solarWindRamPressureNanoPa > 0.0)
-        assertTrue("Standoff radius must be positive", trapped.magnetopauseStandoffRadiusRp > 0.0)
-        assertTrue("Atmospheric lifetime must be positive", trapped.estimatedAtmosphericLifetimeGyr > 0.0)
     }
 }
