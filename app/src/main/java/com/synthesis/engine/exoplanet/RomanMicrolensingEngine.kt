@@ -20,9 +20,14 @@ class RomanMicrolensingEngine @Inject constructor() {
      * A(u) = (u^2 + 2) / (u * sqrt(u^2 + 4))
      */
     fun paczynskiMagnification(u: Double): Double {
-        val uSafe = max(1e-5, abs(u))
-        val u2 = uSafe * uSafe
-        return (u2 + 2.0) / (uSafe * sqrt(u2 + 4.0))
+        require(u.isFinite() && u != 0.0)
+        val x = abs(u)
+        val result = if (x >= 1.0) {
+            val inv = 1.0 / x
+            (1.0 + 2.0 * inv * inv) / sqrt(1.0 + 4.0 * inv * inv)
+        } else (x*x + 2.0) / (x * sqrt(x*x + 4.0))
+        require(result.isFinite())
+        return result
     }
 
     /**
@@ -41,7 +46,7 @@ class RomanMicrolensingEngine @Inject constructor() {
 
         for (i in 0..steps) {
             val t = -span + i * dt
-            val u = sqrt(event.impactParameterU0.pow(2.0) + (t / event.einsteinCrossingTimeDays).pow(2.0))
+            val u = hypot(event.impactParameterU0, t / event.einsteinCrossingTimeDays)
             val baseA = paczynskiMagnification(u)
 
             points.add(
@@ -111,7 +116,7 @@ class RomanMicrolensingEngine @Inject constructor() {
             inferredMassJupiter = (massJupiter * 1000.0).roundToLong() / 1000.0,
             einsteinRadiusMas = (thetaEMas * 1000.0).roundToLong() / 1000.0,
             properMotionMasYr = muRelMasYr,
-            peakMagnification = (event.peakMagnificationA0 * 100.0).roundToLong() / 100.0,
+            peakMagnification = (paczynskiMagnification(event.impactParameterU0) * 100.0).roundToLong() / 100.0,
             crossingDurationHours = (crossingHours * 10.0).roundToLong() / 10.0,
             isFreeFloating = event.isFreeFloatingPlanet,
             causticStructure = causticStructure,
