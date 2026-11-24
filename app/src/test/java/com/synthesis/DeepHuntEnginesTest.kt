@@ -100,6 +100,10 @@ class DeepHuntEnginesTest {
         assertTrue("TSM score must be high (>80) for TOI-1231 benchmark", score.tsmScore >= 80.0)
         assertTrue("Scale height must be positive and physically realistic", score.atmosphericScaleHeightKm in 50.0..2500.0)
         assertTrue("Feature amplitude must be measurable (>50 ppm)", score.transitFeatureAmplitudePpm > 50.0)
-        assertTrue("Recommendation must qualify as Tier 1 Gold Target", score.jwstRecommendation.contains("GOLD"))
+        val expectedTsm = 1.28 * Math.pow(3.65, 3.0) * 330.0 / (15.4 * 0.47 * 0.47 * Math.pow(10.0, 8.88 / 5.0))
+        assertEquals(expectedTsm, score.tsmScore, 1e-8)
+        assertTrue(score.jwstRecommendation.contains("supplied mass"))
+        assertFalse(score.jwstRecommendation.contains("GOLD"))
+        assertTrue("No reference population", score.rankPercentile.isNaN())
     }
 }
