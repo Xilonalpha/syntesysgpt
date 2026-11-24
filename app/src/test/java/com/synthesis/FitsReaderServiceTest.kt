@@ -20,26 +20,28 @@ class FitsReaderServiceTest {
 
         // 1. Build Header Block (2880 bytes)
         val sb = StringBuilder()
-        sb.append("SIMPLE  =                    T / Standard FITS format                           ")
-        sb.append("BITPIX  =                   16 / 16-bit signed integer                          ")
-        sb.append("NAXIS   =                    2 / 2D image matrix                                ")
-        sb.append("NAXIS1  =                   16 / Width in pixels                                ")
-        sb.append("NAXIS2  =                   16 / Height in pixels                               ")
-        sb.append("BSCALE  =                  1.0 / Linear scale factor                            ")
-        sb.append("BZERO   =              32768.0 / Offset for unsigned integers                   ")
-        sb.append("OBJECT  = 'Kepler-186 f'       / Astronomical target                            ")
-        sb.append("TELESCOP= 'Kepler Space Tel'   / Observatory                                    ")
-        sb.append("EXPTIME =               1765.4 / Exposure time in seconds                       ")
-        sb.append("CRVAL1  =            298.65432 / RA at reference pixel                          ")
-        sb.append("CRVAL2  =             44.28190 / Dec at reference pixel                         ")
-        sb.append("CRPIX1  =                  8.0 / Ref pixel X                                    ")
-        sb.append("CRPIX2  =                  8.0 / Ref pixel Y                                    ")
-        sb.append("CDELT1  =            0.0011111 / Plate scale deg/px                             ")
-        sb.append("CDELT2  =            0.0011111 / Plate scale deg/px                             ")
-        sb.append("END                                                                             ")
+        sb.append("SIMPLE  =                    T / Standard FITS format".padEnd(80))
+        sb.append("BITPIX  =                   16 / 16-bit signed integer".padEnd(80))
+        sb.append("NAXIS   =                    2 / 2D image matrix".padEnd(80))
+        sb.append("NAXIS1  =                   16 / Width in pixels".padEnd(80))
+        sb.append("NAXIS2  =                   16 / Height in pixels".padEnd(80))
+        sb.append("BSCALE  =                  1.0 / Linear scale factor".padEnd(80))
+        sb.append("BZERO   =              32768.0 / Offset for unsigned integers".padEnd(80))
+        sb.append("OBJECT  = 'Kepler-186 f'       / Astronomical target".padEnd(80))
+        sb.append("TELESCOP= 'Kepler Space Tel'   / Observatory".padEnd(80))
+        sb.append("EXPTIME =               1765.4 / Exposure time in seconds".padEnd(80))
+        sb.append("CRVAL1  =            298.65432 / RA at reference pixel".padEnd(80))
+        sb.append("CRVAL2  =             44.28190 / Dec at reference pixel".padEnd(80))
+        sb.append("CRPIX1  =                  8.0 / Ref pixel X".padEnd(80))
+        sb.append("CRPIX2  =                  8.0 / Ref pixel Y".padEnd(80))
+        sb.append("CDELT1  =            0.0011111 / Plate scale deg/px".padEnd(80))
+        sb.append("CDELT2  =            0.0011111 / Plate scale deg/px".padEnd(80))
+        sb.append("CTYPE1  = 'RA---TAN'".padEnd(80))
+        sb.append("CTYPE2  = 'DEC--TAN'".padEnd(80))
+        sb.append("END".padEnd(80))
 
         while (sb.length < 2880) {
-            sb.append(" ")
+            sb.append("".padEnd(80))
         }
 
         val headerBytes = sb.toString().toByteArray(Charsets.US_ASCII)
@@ -133,16 +135,16 @@ class FitsReaderServiceTest {
         println("=== TEST: FITS READER SERVICE - HIERARCH & LONG STRING CONTINUE ===")
 
         val sb = StringBuilder()
-        sb.append("SIMPLE  =                    T / Standard FITS format                           ") // 80
-        sb.append("BITPIX  =                    8 / 8-bit unsigned integer                         ") // 80
-        sb.append("NAXIS   =                    0 / Header only HDU                                ") // 80
-        sb.append("OBSERVER= 'National Aeronautics and Space Administration &'                     ") // 80
-        sb.append("CONTINUE  'Astrophysics Division Transiting Exoplanet Survey'                   ") // 80
-        sb.append("HIERARCH ESO INS FILT1 NAME = 'V#74' / European Southern Observatory Filter  ") // 80
-        sb.append("END                                                                             ") // 80
+        sb.append("SIMPLE  =                    T / Standard FITS format".padEnd(80)) // 80
+        sb.append("BITPIX  =                    8 / 8-bit unsigned integer".padEnd(80)) // 80
+        sb.append("NAXIS   =                    0 / Header only HDU".padEnd(80)) // 80
+        sb.append("OBSERVER= 'National Aeronautics and Space Administration &'".padEnd(80)) // 80
+        sb.append("CONTINUE  'Astrophysics Division Transiting Exoplanet Survey'".padEnd(80)) // 80
+        sb.append("HIERARCH ESO INS FILT1 NAME = 'V#74' / European Southern Observatory Filter".padEnd(80)) // 80
+        sb.append("END".padEnd(80)) // 80
 
         while (sb.length < 2880) {
-            sb.append(" ")
+            sb.append("".padEnd(80))
         }
 
         val headerBytes = sb.toString().toByteArray(Charsets.US_ASCII)
@@ -162,14 +164,14 @@ class FitsReaderServiceTest {
 
         // 1. Primary HDU Header (NAXIS=0, header only)
         val h1 = StringBuilder()
-        h1.append("SIMPLE  =                    T / Standard FITS format                           ")
-        h1.append("BITPIX  =                    8 / Byte array                                     ")
-        h1.append("NAXIS   =                    0 / No image array in primary                      ")
-        h1.append("EXTEND  =                    T / File may contain extensions                    ")
-        h1.append("OBJECT  = 'TIC 261136679'      / TESS Target Star                               ")
-        h1.append("TELESCOP= 'TESS'               / Transiting Exoplanet Survey Satellite          ")
-        h1.append("END                                                                             ")
-        while (h1.length < 2880) h1.append(" ")
+        h1.append("SIMPLE  =                    T / Standard FITS format".padEnd(80))
+        h1.append("BITPIX  =                    8 / Byte array".padEnd(80))
+        h1.append("NAXIS   =                    0 / No image array in primary".padEnd(80))
+        h1.append("EXTEND  =                    T / File may contain extensions".padEnd(80))
+        h1.append("OBJECT  = 'TIC 261136679'      / TESS Target Star".padEnd(80))
+        h1.append("TELESCOP= 'TESS'               / Transiting Exoplanet Survey Satellite".padEnd(80))
+        h1.append("END".padEnd(80))
+        while (h1.length < 2880) h1.append("".padEnd(80))
         val primaryHeaderBytes = h1.toString().toByteArray(Charsets.US_ASCII)
 
         // 2. BINTABLE Extension HDU Header
@@ -179,24 +181,24 @@ class FitsReaderServiceTest {
         val totalTableBytes = numRows * rowSize
 
         val h2 = StringBuilder()
-        h2.append("XTENSION= 'BINTABLE'           / Binary Table Extension                         ")
-        h2.append("BITPIX  =                    8 / 8-bit unsigned bytes                           ")
-        h2.append("NAXIS   =                    2 / 2D table matrix                                ")
-        h2.append("NAXIS1  =                   20 / Width of row in bytes                          ")
-        h2.append("NAXIS2  =                   20 / Number of rows in table                        ")
-        h2.append("PCOUNT  =                    0 / No heap area                                   ")
-        h2.append("GCOUNT  =                    1 / Standard group count                           ")
-        h2.append("TFIELDS =                    3 / Number of columns                              ")
-        h2.append("TTYPE1  = 'TIME'               / BJD - 2457000                                  ")
-        h2.append("TFORM1  = '1D'                 / 64-bit IEEE float                              ")
-        h2.append("TUNIT1  = 'BJD - 2457000'      / Time unit                                      ")
-        h2.append("TTYPE2  = 'PDCSAP_FLUX'        / PDC Calibrated Flux                            ")
-        h2.append("TFORM2  = '1D'                 / 64-bit IEEE float                              ")
-        h2.append("TUNIT2  = 'e-/s'               / Flux unit                                      ")
-        h2.append("TTYPE3  = 'QUALITY'            / Quality Bit Flags                              ")
-        h2.append("TFORM3  = '1J'                 / 32-bit signed int                              ")
-        h2.append("END                                                                             ")
-        while (h2.length < 2880) h2.append(" ")
+        h2.append("XTENSION= 'BINTABLE'           / Binary Table Extension".padEnd(80))
+        h2.append("BITPIX  =                    8 / 8-bit unsigned bytes".padEnd(80))
+        h2.append("NAXIS   =                    2 / 2D table matrix".padEnd(80))
+        h2.append("NAXIS1  =                   20 / Width of row in bytes".padEnd(80))
+        h2.append("NAXIS2  =                   20 / Number of rows in table".padEnd(80))
+        h2.append("PCOUNT  =                    0 / No heap area".padEnd(80))
+        h2.append("GCOUNT  =                    1 / Standard group count".padEnd(80))
+        h2.append("TFIELDS =                    3 / Number of columns".padEnd(80))
+        h2.append("TTYPE1  = 'TIME'               / BJD - 2457000".padEnd(80))
+        h2.append("TFORM1  = '1D'                 / 64-bit IEEE float".padEnd(80))
+        h2.append("TUNIT1  = 'BJD - 2457000'      / Time unit".padEnd(80))
+        h2.append("TTYPE2  = 'PDCSAP_FLUX'        / PDC Calibrated Flux".padEnd(80))
+        h2.append("TFORM2  = '1D'                 / 64-bit IEEE float".padEnd(80))
+        h2.append("TUNIT2  = 'e-/s'               / Flux unit".padEnd(80))
+        h2.append("TTYPE3  = 'QUALITY'            / Quality Bit Flags".padEnd(80))
+        h2.append("TFORM3  = '1J'                 / 32-bit signed int".padEnd(80))
+        h2.append("END".padEnd(80))
+        while (h2.length < 2880) h2.append("".padEnd(80))
         val extHeaderBytes = h2.toString().toByteArray(Charsets.US_ASCII)
 
         // 3. BINTABLE Data Block (20 rows * 20 bytes = 400 bytes, padded to 2880)
