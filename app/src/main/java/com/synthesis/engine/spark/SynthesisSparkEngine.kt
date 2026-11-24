@@ -29,6 +29,29 @@ import kotlin.system.measureTimeMillis
 @Singleton
 class SynthesisSparkEngine @Inject constructor() {
 
+    /** Explicit phase convention, partition-independent weighted flux reduction. */
+    data class WeightedFlux(val phase: Double, val flux: Double, val error: Double)
+    data class FoldedContrast(val depth: Double, val error: Double, val insideCount: Int, val outsideCount: Int)
+    fun measureFoldedContrast(points: List<WeightedFlux>, halfWidth: Double): FoldedContrast {
+        require(halfWidth.isFinite() && halfWidth > 0 && halfWidth < 0.25)
+        require(points.all { it.phase.isFinite() && it.phase >= -0.5 && it.phase < 0.5 &&
+            it.flux.isFinite() && it.error.isFinite() && it.error > 0 })
+        val (inside,outside) = points.partition { abs(it.phase) <= halfWidth }
+        require(inside.size >= 3 && outside.size >= 3)
+        fun mean(p: List<WeightedFlux>): Pair<Double,Double> {
+            val w = p.map { 1/(it.error*it.error) }
+            val total = w.sum()
+            require(total.isFinite() && total > 0)
+            return p.indices.sumOf { w[it]/total*p[it].flux } to sqrt(1/total)
+        }
+        val (a,ae) = mean(inside)
+        val (b,be) = mean(outside)
+        val depth = b-a
+        val error = hypot(ae,be)
+        require(depth.isFinite() && error.isFinite() && error > 0)
+        return FoldedContrast(depth,error,inside.size,outside.size)
+    }
+
     suspend fun executeDistributedTransitSearch(
         ticId: String,
         points: List<MastPhotometryPoint>,
