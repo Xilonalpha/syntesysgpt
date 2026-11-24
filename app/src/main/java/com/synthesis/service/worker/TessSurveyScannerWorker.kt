@@ -119,6 +119,41 @@ class TessSurveyScannerWorker @AssistedInject constructor(
                         !d.vetting.isSecondaryEclipseDetected && d.vetting.isOddEvenConsistent && d.vetting.isDurationPhysical) {
                         shortlisted.add(tic)
                     }
+                    val span = (observation.dataPoints.maxOfOrNull { it.bjdTime } ?: 0.0) -
+                        (observation.dataPoints.minOfOrNull { it.bjdTime } ?: 0.0)
+                    val upper = minOf(30.0, span / 2.0)
+                    val lower = maxOf(0.5, upper / 5.0)
+                    if (upper > lower) {
+                        val extra = xilonRepository.searchAdditionalTransit(observation, lower, upper)
+                        if (extra != null && extra.transitSnr.isFinite() && extra.transitSnr >= minSnr &&
+                            extra.transitDepthPpm.isFinite() && extra.transitDepthPpm >= minDepth &&
+                            extra.transitDepthPpm < 1_000_000.0 && extra.transitDurationHours.isFinite() &&
+                            extra.transitDurationHours > 0 && extra.transitDurationHours < extra.bestPeriodDays * 24) {
+                            val status = xilonRepository.compareCatalogPeriods(tic, extra.bestPeriodDays)
+                            val signalId = synchronization.archiveAdditionalSignal(experiment, d, extra, lower, upper, status)
+                            val passed = !extra.vetting.isSecondaryEclipseDetected &&
+                                extra.vetting.isOddEvenConsistent && extra.vetting.isDurationPhysical
+                            val extraPayload = payload.deepCopy().apply {
+                                addProperty("additional_signal_id", signalId)
+                                addProperty("period_days", extra.bestPeriodDays)
+                                addProperty("depth_ppm", extra.transitDepthPpm)
+                                addProperty("duration_hours", extra.transitDurationHours)
+                                addProperty("snr", extra.transitSnr)
+                                addProperty("catalog_status", status)
+                                addProperty("comparison_evidence", signalId)
+                                addProperty("vetting_status", if (passed) "PRELIMINARY_SCREEN_PASSED" else "VETTING_FLAG")
+                            }
+                            researchRepository.saveResearch(com.synthesis.data.local.entity.SynthesizedResearchEntity(
+                                id = "independent-tess:$experiment:$signalId",
+                                title = "Semnal suplimentar TESS nevalidat: TIC $tic",
+                                targetName = "TIC $tic", researchCategory = "EXOPLANET",
+                                summary = "Masked BLS; same observations; $status",
+                                synthesizedDataJson = extraPayload.toString(), confidenceScore = 0f,
+                                sourceCount = observation.products.size, isVerified = false
+                            ))
+                            if (passed && status == "NO_PERIOD_MATCH_IN_QUERIED_TABLES; NOVELTY_UNVERIFIED") shortlisted.add(tic)
+                        }
+                    }
                 }
                 if (shortlisted.isNotEmpty()) postIndependentAlert(shortlisted.distinct())
                 prefs.edit()
