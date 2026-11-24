@@ -42,6 +42,48 @@ class MastDataSynchronizationService @Inject constructor(
 
     private val curatedPresets = emptyList<MastObservationTarget>()
 
+    /** Offline held-out check. Search the training product only; never fit BLS to the held-out flux. */
+    suspend fun validateArchivedSectors(experimentId: String, trainingSector: Int, heldOutSector: Int):
+        com.synthesis.engine.exoplanet.MultiSectorTimingValidation.Result = withContext(Dispatchers.IO) {
+        require(trainingSector > 0 && heldOutSector > trainingSector)
+        val evidence = FitsEvidenceStore(java.io.File(context.filesDir, "fits_evidence"))
+        val manifest = ExperimentManifestStore(java.io.File(context.filesDir, "experiment_manifests"), evidence)
+            .readVerified(experimentId)
+        val training = manifest.sources.single { it.sector == trainingSector }
+        val held = manifest.sources.single { it.sector == heldOutSector }
+        require(training.uri != held.uri && !training.sha256.equals(held.sha256, true))
+        fun load(source: ExperimentManifestStore.Source): List<PhotometricDataPoint> {
+            val doc = FitsReaderService().read(evidence.readVerified(source.sha256))
+            require(doc.header.getLong("TICID") == manifest.tic &&
+                doc.header.getString("TELESCOP").equals("TESS", true) &&
+                doc.header.getInt("SECTOR") == source.sector)
+            return doc.extractLightCurve().orEmpty().also { require(it.size == source.points) }
+        }
+        val trainPoints = load(training)
+        val testPoints = load(held)
+        require(trainPoints.maxOf { it.bjdTime } < testPoints.minOf { it.bjdTime })
+        val detection = periodicTransitAnalysisEngine.analyzeDataPoints(trainPoints)
+        require(detection.isDetected)
+        val p = detection.bestPeriodDays
+        val epoch = detection.epochBjd
+        val duration = detection.transitDurationHours / 24.0
+        val timing = com.synthesis.engine.exoplanet.IndividualTransitTiming
+        val measured = timing.estimate(detection.phaseFoldedPoints, p, epoch, duration)
+        val fit = com.synthesis.engine.exoplanet.TransitTimingPhysics.fit(measured)
+        val folded = testPoints.map {
+            val cycles = (it.bjdTime - fit.epochDays) / fit.periodDays
+            require(cycles.isFinite() && kotlin.math.abs(cycles) < 1e9)
+            val n = kotlin.math.round(cycles).toLong()
+            val phase = cycles - n
+            PhaseFoldedPoint(phase, it.relativeFlux, it.fluxError, it.minuteOffset,
+                it.bjdTime, n, kotlin.math.abs(phase) <= duration / (2 * fit.periodDays))
+        }
+        val heldTimings = timing.estimate(folded, fit.periodDays, fit.epochDays, duration)
+        com.synthesis.engine.exoplanet.MultiSectorTimingValidation.evaluate(
+            com.synthesis.engine.exoplanet.MultiSectorTimingValidation.SectorTimings(trainingSector, training.sha256, measured),
+            com.synthesis.engine.exoplanet.MultiSectorTimingValidation.SectorTimings(heldOutSector, held.sha256, heldTimings))
+    }
+
     /** Offline replay; no network requests and no claim of scientific confirmation. */
     suspend fun replayExperiment(id: String) = withContext(Dispatchers.IO) {
         val evidence = FitsEvidenceStore(java.io.File(context.filesDir, "fits_evidence"))
