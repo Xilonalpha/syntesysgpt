@@ -13,7 +13,7 @@ class TessHeasarcValidationEngineTest {
     private val validationEngine = TessHeasarcValidationEngine(astrometryEngine)
 
     @Test
-    fun testSector75PointingErrorDetectionForTic123891044() {
+    fun testUnverifiedSectorDoesNotInventCoverage() {
         println("=== TEST 1: TESS-point HEASARC FOV Validation for TIC 123891044 ===")
         // Coordinates of TIC 123891044 in Monoceros
         val raDeg = 103.5412
@@ -30,24 +30,15 @@ class TessHeasarcValidationEngineTest {
         // Verify ecliptic coordinates
         assertTrue("Star must be in Southern Ecliptic Hemisphere (beta < 0)", audit.eclipticCoords.betaDeg < -20.0)
 
-        // Pointing mismatch MUST be detected
-        assertTrue("Sector 75 pointing mismatch must be flagged", audit.pointingMismatchFlag)
-        assertFalse("Sector 75 was NOT observed by TESS for this target", audit.isClaimedSectorObserved)
-
-        // Must list real confirmed HEASARC sectors: 6, 33, 87, 110, 111
-        assertTrue("Real sectors must contain Sector 6", audit.actualObservedSectors.contains(6))
-        assertTrue("Real sectors must contain Sector 33", audit.actualObservedSectors.contains(33))
-        assertTrue("Real sectors must contain Sector 87", audit.actualObservedSectors.contains(87))
-
-        // Suggested sector should re-align to Sector 6 / 33
-        assertTrue("Suggested sector must mention Sector 6", audit.suggestedCorrectSector.contains("6"))
-
-        // Explanation must give astronomical context
-        assertTrue("Explanation must explain field-of-view mismatch", audit.pointingExplanation.contains("HEASARC TESS-point"))
+        assertFalse(audit.pointingMismatchFlag)
+        assertFalse(audit.isClaimedSectorObserved)
+        assertTrue(audit.actualObservedSectors.isEmpty())
+        assertEquals("Sector 75 (s0075) (unverified)", audit.suggestedCorrectSector)
+        assertEquals(75, audit.claimedSectorNumber)
     }
 
     @Test
-    fun testValidPointingForContinuousViewingZoneTarget() {
+    fun testCoordinatesAloneDoNotConfirmObservation() {
         println("=== TEST 2: Valid Pointing Alignment for TOI-700 (TIC 150428135) ===")
         val raDeg = 97.0957
         val decDeg = -55.5786
@@ -60,8 +51,8 @@ class TessHeasarcValidationEngineTest {
         )
 
         assertFalse("Pointing should have NO mismatch for TOI-700 in Sector 12", audit.pointingMismatchFlag)
-        assertTrue("Sector 12 must be confirmed as observed", audit.isClaimedSectorObserved)
-        assertTrue("Observed sectors must include Sector 12", audit.actualObservedSectors.contains(12))
+        assertFalse(audit.isClaimedSectorObserved)
+        assertTrue(audit.actualObservedSectors.isEmpty())
     }
 
     @Test
@@ -131,11 +122,11 @@ class TessHeasarcValidationEngineTest {
 
         val dossier = validationEngine.validateCandidate(sampleDetection)
 
-        assertEquals("Status must be SECTOR_CORRECTED", ValidationStatus.SECTOR_CORRECTED, dossier.overallStatus)
-        assertTrue("Validation score should remain high for genuine transit", dossier.validationScore >= 0.8)
-        assertTrue("Sanitized sector must replace Sector 75 with real sectors (6/33)", dossier.sanitizedSectorLabel.contains("6"))
-        assertTrue("Must contain sector correction warning", dossier.warnings.any { it.contains("ATENȚIE SECTOR") })
-        assertFalse("Must confirm no eclipsing binary features", dossier.heasarcAudit.isKnownEclipsingBinary)
+        assertEquals(ValidationStatus.MARGINAL_SNR_AMBIGUOUS, dossier.overallStatus)
+        assertEquals(0.0, dossier.validationScore, 0.0)
+        assertTrue(dossier.sanitizedSectorLabel.endsWith("(unverified)"))
+        assertTrue(dossier.pointingAudit.actualObservedSectors.isEmpty())
+        assertFalse(dossier.heasarcAudit.isPhysicallyPlausibleTransit)
     }
 
     @Test
@@ -196,7 +187,8 @@ class TessHeasarcValidationEngineTest {
         val dossier = validationEngine.validateCandidate(binaryDetection)
 
         assertEquals("Status must flag binary", ValidationStatus.SUSPECTED_ECLIPSING_BINARY, dossier.overallStatus)
-        assertTrue("heasarcAudit must identify eclipsing binary", dossier.heasarcAudit.isKnownEclipsingBinary)
+        assertFalse("Photometric risk is not catalog confirmation", dossier.heasarcAudit.isKnownEclipsingBinary)
+        assertTrue(dossier.warnings.any { it.contains("odd-even") })
         assertTrue("Validation score must be penalized heavily", dossier.validationScore < 0.5)
     }
 }
