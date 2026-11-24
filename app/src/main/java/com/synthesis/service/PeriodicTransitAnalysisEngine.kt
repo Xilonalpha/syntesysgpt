@@ -111,7 +111,10 @@ class PeriodicTransitAnalysisEngine @Inject constructor(
         points: List<PhotometricDataPoint>,
         primary: PeriodicTransitDetectionResult,
         minPeriodDays: Double,
-        maxPeriodDays: Double
+        maxPeriodDays: Double,
+        hostStarRadiusSolar: Double = Double.NaN,
+        hostStarMassSolar: Double = Double.NaN,
+        hostStarTeffK: Double = Double.NaN
     ): PeriodicTransitDetectionResult? {
         require(minPeriodDays.isFinite() && maxPeriodDays.isFinite() && minPeriodDays > 0 && maxPeriodDays > minPeriodDays)
         val p = primary.bestPeriodDays
@@ -124,7 +127,8 @@ class PeriodicTransitAnalysisEngine @Inject constructor(
             abs(cycles - round(cycles)) * p > 0.75 * duration
         }
         if (remaining.size < 8 || remaining.size == points.size) return null
-        val secondary = analyzeDataPoints(remaining, minPeriodDays, maxPeriodDays)
+        val secondary = analyzeDataPoints(remaining, minPeriodDays, maxPeriodDays,
+            hostStarRadiusSolar, hostStarMassSolar, hostStarTeffK)
         if (!secondary.isDetected || !secondary.bestPeriodDays.isFinite() || secondary.bestPeriodDays <= 0) return null
         val ratio = secondary.bestPeriodDays / p
         // Conservative harmonic rejection, not a proof of distinct planetary origin.
