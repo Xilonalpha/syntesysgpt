@@ -12,9 +12,8 @@ import kotlin.math.pow
 /**
  * Biosignature & Technosignature Spectral Fingerprint Analyzer
  *
- * Implements Krissansen-Totton et al. (2018, Science Advances, 4(1):eaao5747)
- * atmospheric thermodynamic disequilibrium calculations and transit asymmetry
- * algorithms for megastructure detection (Boyajian's star analog analysis).
+ * Provides reaction-specific thermodynamics and descriptive transit asymmetry.
+ * No validated biological or technological classification is implemented.
  */
 @Singleton
 class BiosignatureTechnosignatureEngine @Inject constructor() {
