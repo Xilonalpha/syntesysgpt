@@ -403,7 +403,24 @@ class PeriodicTransitAnalysisEngine @Inject constructor(
         }
         val shapePass = sinusoidComparable && boxLoss.isFinite() && sineLoss.isFinite() && boxLoss < sineLoss
         val binaryWarning = (oddTransits.isNotEmpty() && evenTransits.isNotEmpty() && !isOddEvenConsistent) || isSecDetected
-        val isDetected = !binaryWarning && observedEvents >= 3 && sde >= 6.0 && depthPpm >= 300.0 && transitSnr >= 7.0 && deltaChiSq > 0.0 && shapePass
+        // Independent event contrasts: local sidebands reduce slow baseline drift.
+        // Event scatter supplies a conservative floor against correlated cadence noise.
+        val eventDepths = phaseFoldedPoints.groupBy { it.epochIndex }.values.mapNotNull { event ->
+            val inside = event.filter { it.isInTransit }
+            val before = event.filter { it.phase < -inTransitHalfWidth && it.phase >= -3 * inTransitHalfWidth }
+            val after = event.filter { it.phase > inTransitHalfWidth && it.phase <= 3 * inTransitHalfWidth }
+            if (inside.size < 2 || before.size < 2 || after.size < 2) null
+            else (before.map { it.relativeFlux }.average() + after.map { it.relativeFlux }.average()) / 2 -
+                inside.map { it.relativeFlux }.average()
+        }
+        val eventMean = if (eventDepths.isEmpty()) 0.0 else eventDepths.average()
+        val eventSe = if (eventDepths.size >= 3) sqrt(eventDepths.sumOf {
+            (it - eventMean).pow(2)
+        } / (eventDepths.size - 1) / eventDepths.size) else Double.POSITIVE_INFINITY
+        val eventSignificance = eventMean / max(eventSe, mad / sqrt(inTransitCount.toDouble()))
+        val eventPass = eventDepths.size >= 3 && eventSignificance >= 4.0 &&
+            eventDepths.count { it > 0 } >= ceil(0.75 * eventDepths.size).toInt()
+        val isDetected = eventPass && !binaryWarning && observedEvents >= 3 && sde >= 6.0 && depthPpm >= 300.0 && transitSnr >= 7.0 && deltaChiSq > 0.0 && shapePass
 
         // Evaluate independent local maxima before giving up on a rejected global peak.
         // Retain the original full-search SDE normalization; narrow searches must
@@ -522,6 +539,8 @@ class PeriodicTransitAnalysisEngine @Inject constructor(
                 }
             } else if (binaryWarning) {
                 append("Semnal periodic cu indicatori de eclipsă binară; candidat planetar neacceptat. ")
+            } else if (!eventPass) {
+                append("Contrast local insuficient între evenimente: n=${eventDepths.size}, statistică=${String.format(\"%.2f\", eventSignificance)}. ")
             } else if (!shapePass) {
                 append("Modelul de tranzit nu depășește alternativa sinusoidală sau comparația este nedeterminată.")
             } else {
