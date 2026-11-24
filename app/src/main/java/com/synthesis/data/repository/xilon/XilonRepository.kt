@@ -158,7 +158,8 @@ class XilonRepository @Inject constructor(
         maxTmag: Double,
         page: Int,
         batchSize: Int,
-        synchronization: com.synthesis.service.MastDataSynchronizationService
+        synchronization: com.synthesis.service.MastDataSynchronizationService,
+        onSignal: suspend (com.synthesis.domain.model.exoplanet.MastSyncResult, String, String) -> Unit = { _, _, _ -> }
     ): List<com.synthesis.domain.model.exoplanet.MastSyncResult> {
         require(batchSize in 1..10)
         val targets = selectIndependentTicTargets(maxTmag, page, batchSize)
@@ -172,7 +173,8 @@ class XilonRepository @Inject constructor(
                 detection.transitDepthPpm >= 1_000_000.0) continue
             val experimentId = observation.experimentId ?: continue
             val comparison = compareCatalogPeriods(tic, detection.bestPeriodDays)
-            synchronization.archiveCatalogComparison(experimentId, detection.bestPeriodDays, comparison)
+            val comparisonEvidence = synchronization.archiveCatalogComparison(experimentId, detection.bestPeriodDays, comparison)
+            onSignal(observation, comparison, comparisonEvidence)
             results.add(observation)
         }
         return results
