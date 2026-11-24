@@ -58,25 +58,9 @@ class AdvancedDiscoveryRepository @Inject constructor(
 
     fun getCuratedLiveTransits(): List<LiveTransitTarget> = emptyList()
 
-    suspend fun runCustomDilutionDeblend(
-        candidateName: String,
-        ticId: String,
-        status: String,
-        depthPpm: Double,
-        targetMag: Double,
-        neighborMag: Double,
-        sepArcsec: Double,
-        radSun: Double
-    ): DilutionRescueCandidate = withContext(Dispatchers.Default) {
-        dilutionEngine.deblendCandidate(
-            candidateName = candidateName,
-            ticId = ticId,
-            originalNasaStatus = status,
-            observedTransitDepthPpm = depthPpm,
-            targetStarMagGaia = targetMag,
-            blendingStarMagGaia = neighborMag,
-            angularSeparationArcsec = sepArcsec,
-            stellarRadiusSun = radSun
-        )
+    suspend fun runMeasuredDilution(depth: Double, depthError: Double, target: Double,
+                                    targetError: Double, contaminant: Double, contaminantError: Double
+    ): ApertureDilutionEstimate = withContext(Dispatchers.Default) {
+        dilutionEngine.deblendMeasured(depth, depthError, target, targetError, contaminant, contaminantError)
     }
 }
