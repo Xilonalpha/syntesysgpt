@@ -102,7 +102,12 @@ class DeepHuntViewModel @Inject constructor(
                         val result = xilonRepository.runIndependentSearch(tic, mastSynchronization).getOrThrow()
                         val b = result.periodicDetection
                         "TIC $tic: " + (if (b.isDetected) "Preliminary P=${b.bestPeriodDays} d; SNR=${b.transitSnr}" else "No accepted signal") +
-                            "; experiment=${result.experimentId}; " + (if (b.isDetected) xilonRepository.compareCatalogPeriods(tic, b.bestPeriodDays) else "novelty not assessed")
+                            "; experiment=${result.experimentId}; " + (if (b.isDetected) {
+                                val status = xilonRepository.compareCatalogPeriods(tic, b.bestPeriodDays)
+                                val comparisonId = mastSynchronization.archiveCatalogComparison(
+                                    requireNotNull(result.experimentId), b.bestPeriodDays, status)
+                                "$status; comparison=$comparisonId"
+                            } else "novelty not assessed")
                     } catch (e: kotlinx.coroutines.CancellationException) {
                         throw e
                     } catch (e: Exception) {
