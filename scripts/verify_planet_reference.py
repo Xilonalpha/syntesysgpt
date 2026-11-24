@@ -34,7 +34,7 @@ def main():
     a = p.parse_args()
     if not re.fullmatch(r"[A-Za-z0-9 .+-]+", a.name):
         raise ValueError("Invalid catalog name")
-    query = ("select pl_name,hostname,tic_id,pl_orbper,pl_orbpererr1,pl_orbpererr2 "
+    query = ("select pl_name,hostname,tic_id,pl_orbper,"pl_orbpererr1,pl_orbpererr2,st_rad,st_mass,st_teff,st_raderr1,st_raderr2,st_masserr1,st_masserr2,st_tefferr1,st_tefferr2 "
              "from pscomppars where pl_name = '" + a.name + "'")
     url = ENDPOINT + "?" + urlencode({"query": query, "format": "json"})
     with urlopen(url, timeout=60) as response:
