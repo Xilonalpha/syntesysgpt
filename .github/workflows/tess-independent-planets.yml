@@ -7,7 +7,7 @@ on:
         type: boolean
         default: false
       detrend:
-        description: Experimental fixed-scale median detrending
+        description: Experimental robust local cubic detrending
         type: boolean
         default: false
 permissions:
