@@ -21,7 +21,7 @@ def apply(source, output):
                delimiter=",", header="bjd,flux,error", comments="", fmt="%.17g")
     np.savetxt(str(output)+".baseline.csv", np.column_stack((data["bjd"], baseline, support)),
                delimiter=",", header="bjd,baseline,supported", comments="", fmt="%.17g")
-    report = {"mode":"exploratory_median", "window_days":1.5, "gap_days":.5,
+    report = {"mode":"exploratory_robust_local_cubic", "window_days":1.5, "gap_days":.5,
               "input_points":len(data), "output_points":int(support.sum()),
               "source_sha256":hashlib.sha256(source.read_bytes()).hexdigest(),
               "output_sha256":hashlib.sha256(output.read_bytes()).hexdigest(),
