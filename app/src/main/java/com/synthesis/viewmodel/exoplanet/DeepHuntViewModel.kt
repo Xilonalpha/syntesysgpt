@@ -183,13 +183,24 @@ class DeepHuntViewModel @Inject constructor(
                     val line = try {
                         val result = xilonRepository.runIndependentSearch(tic, mastSynchronization).getOrThrow()
                         val b = result.periodicDetection
-                        "TIC $tic: " + (if (b.isDetected) "Preliminary P=${b.bestPeriodDays} d; SNR=${b.transitSnr}" else "No accepted signal") +
+                        val primarySummary = "TIC $tic: " + (if (b.isDetected) "Preliminary P=${b.bestPeriodDays} d; SNR=${b.transitSnr}" else "No accepted signal") +
                             "; experiment=${result.experimentId}; " + (if (b.isDetected) {
                                 val status = xilonRepository.compareCatalogPeriods(tic, b.bestPeriodDays)
                                 val comparisonId = mastSynchronization.archiveCatalogComparison(
                                     requireNotNull(result.experimentId), b.bestPeriodDays, status)
                                 "$status; comparison=$comparisonId"
                             } else "novelty not assessed")
+                        val span = (result.dataPoints.maxOfOrNull { it.bjdTime } ?: 0.0) -
+                            (result.dataPoints.minOfOrNull { it.bjdTime } ?: 0.0)
+                        val upper = minOf(30.0, span / 2.0)
+                        val lower = maxOf(0.5, upper / 5.0)
+                        if (b.isDetected && upper > lower) {
+                            val extra = xilonRepository.searchAdditionalTransit(result, lower, upper)
+                            primarySummary + if (extra != null) {
+                                val catalog = xilonRepository.compareCatalogPeriods(tic, extra.bestPeriodDays)
+                                "\nAdditional exploratory signal: P=${extra.bestPeriodDays} d; SNR=${extra.transitSnr}; $catalog; not independently validated or archived"
+                            } else "\nAdditional search: no accepted signal in $lower–$upper d (not a completeness claim)"
+                        } else primarySummary
                     } catch (e: kotlinx.coroutines.CancellationException) {
                         throw e
                     } catch (e: Exception) {
