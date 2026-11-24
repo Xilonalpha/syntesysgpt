@@ -71,7 +71,22 @@ class PureTicCatalogRepository @Inject constructor(
                     isLiveIngested = true, ingestionTimestamp = row.timestamp, snrSigma = snr
                 )
             } catch (_: Exception) { null }
-        }.sortedWith(compareByDescending<PureTicCandidate> { it.snrSigma }
+        }.let { candidates -> candidates.map { candidate ->
+            val sector = candidate.sector.trim().toIntOrNull()
+                ?: Regex("(?i)^sector\\s+(\\d+)$").matchEntire(candidate.sector.trim())?.groupValues?.get(1)?.toIntOrNull()
+            val period = candidate.estimatedPeriodDays
+            val matches = if (sector == null || sector <= 0 || period == null) emptyList() else candidates.filter { other ->
+                val otherSector = other.sector.trim().toIntOrNull()
+                    ?: Regex("(?i)^sector\\s+(\\d+)$").matchEntire(other.sector.trim())?.groupValues?.get(1)?.toIntOrNull()
+                val otherPeriod = other.estimatedPeriodDays
+                other.ticId == candidate.ticId && otherSector != null && otherSector > 0 && otherSector != sector &&
+                    otherPeriod != null && abs(otherPeriod - period) / period <= 0.01 &&
+                    abs(other.transitDepthPpm - candidate.transitDepthPpm) / candidate.transitDepthPpm <= 0.3 &&
+                    abs(other.transitDurationHours - candidate.transitDurationHours) / candidate.transitDurationHours <= 0.3
+            }
+            if (matches.isEmpty()) candidate else candidate.copy(scientificNotes = candidate.scientificNotes +
+                "; concordanta preliminara intre etichete de sector distincte; independenta produselor si faza neverificate")
+        } }.sortedWith(compareByDescending<PureTicCandidate> { it.snrSigma }
             .thenByDescending { it.ingestionTimestamp }.thenBy { it.ticId })
             .distinctBy { it.ticId } }
         .stateIn(repositoryScope, SharingStarted.Eagerly, emptyList())
