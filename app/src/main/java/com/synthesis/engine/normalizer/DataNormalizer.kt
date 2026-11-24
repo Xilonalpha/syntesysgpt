@@ -49,8 +49,9 @@ class DataNormalizer @Inject constructor() {
     }
 
     private fun standardizeUnit(unit: String): String {
-        if (unit in setOf("MW", "mW", "Mw", "M", "C", "F")) return unit
-        return when (unit.lowercase()) {
+        val trimmed = unit.trim()
+        if (trimmed in setOf("MW", "mW", "Mw", "M", "C", "F")) return trimmed
+        return when (trimmed.lowercase(java.util.Locale.ROOT)) {
             "days", "day", "d" -> "days"
             "hours", "hour", "h" -> "hours"
             "km", "kilometers", "kilometer" -> "km"
@@ -62,7 +63,7 @@ class DataNormalizer @Inject constructor() {
             "hpa", "millibar", "mb" -> "hPa"
             "%", "percent", "percentage" -> "%"
             "m/s", "mps", "meters per second" -> "m/s"
-            else -> unit
+            else -> trimmed
         }
     }
 
