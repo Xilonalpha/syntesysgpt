@@ -40,6 +40,8 @@ fun DeepHuntScreen(
     var observedSector by remember { mutableStateOf("") }
     var observedPage by remember { mutableStateOf("1") }
     var archiveOffset by remember { mutableStateOf("0") }
+    var archiveExperiment by remember { mutableStateOf("") }
+    var archiveRun by remember { mutableStateOf("") }
     val archiveStatus by viewModel.archiveStatus.collectAsState()
     val archiveLoading by viewModel.archiveLoading.collectAsState()
     val monoTransits by viewModel.monoTransits.collectAsState()
@@ -163,6 +165,14 @@ fun DeepHuntScreen(
                         Button(onClick = { viewModel.loadExperimentArchive(archiveOffset) },
                             enabled = !archiveLoading) {
                             Text(if (archiveLoading) "Verifying evidence..." else "Load archive page")
+                        }
+                        OutlinedTextField(value = archiveExperiment, onValueChange = { archiveExperiment = it },
+                            label = { Text("Experiment ID") }, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(value = archiveRun, onValueChange = { archiveRun = it },
+                            label = { Text("Run ID (empty to list runs)") }, modifier = Modifier.fillMaxWidth())
+                        Button(onClick = { viewModel.loadArchivedMetrics(archiveExperiment, archiveRun) },
+                            enabled = !archiveLoading && archiveExperiment.isNotBlank()) {
+                            Text("Read verified results")
                         }
                         Text(archiveStatus, color = TextSecondary)
                     }
