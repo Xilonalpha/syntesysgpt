@@ -290,27 +290,11 @@ class NasaExoFopExporter @Inject constructor(
     }
 
     private suspend fun resolveIcrsCoordinates(entity: XilonDiscoveryEntity): Pair<Double, Double> {
-        if (entity.raDeg != null && entity.decDeg != null && (abs(entity.raDeg) > 0.0001 || abs(entity.decDeg) > 0.0001)) {
+        if (entity.raDeg != null && entity.decDeg != null && entity.raDeg.isFinite() && entity.decDeg.isFinite() && entity.raDeg >= 0.0 && entity.raDeg < 360.0 && entity.decDeg in -90.0..90.0) {
             return Pair(entity.raDeg, entity.decDeg)
         }
 
-        val cleanTic = entity.ticId.replace("TIC", "", ignoreCase = true).trim()
-        val pureStar = pureTicDao.getByTicId(cleanTic)
-        if (pureStar != null) {
-            if (pureStar.ra != null && pureStar.dec != null) {
-                return Pair(pureStar.ra, pureStar.dec)
-            }
-        }
-
-        return when (cleanTic) {
-            "150428135" -> Pair(97.0957, -55.5786)
-            "268301217" -> Pair(117.7583, -64.6147)
-            "167418703" -> Pair(108.2341, -73.1256)
-            "141913165" -> Pair(84.1205, -61.2184)
-            "123891044" -> Pair(103.5412, -8.8524)
-            "25155310" -> Pair(142.1584, 18.2351)
-            else -> Pair(0.0, 0.0)
-        }
+        throw IllegalStateException("Verified ICRS coordinates are required for ExoFOP export")
     }
 
     private fun escapeCsv(value: String): String {
