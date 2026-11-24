@@ -110,19 +110,27 @@ class BigBangCosmologyEngine @Inject constructor() {
         omegaLambda: Double = 0.685,
         omegaRadiation: Double = 9.0e-5
     ): BigBangSimulationResult {
+        require(h0.isFinite() && h0 > 0 && listOf(omegaM, omegaLambda, omegaRadiation).all { it.isFinite() && it >= 0 })
         val omegaK = 1.0 - (omegaM + omegaLambda + omegaRadiation)
 
         // Deceleration parameter q0 = 0.5 * Omega_M - Omega_Lambda
-        val q0 = (0.5 * omegaM) - omegaLambda
+        val q0 = (0.5 * omegaM) + omegaRadiation - omegaLambda
 
         // Numerical integration of cosmic age: t(z=0)
         // dt/dz = 1 / ((1+z) * H(z))
         // Exact Friedmann LCDM solution: t_H = 1 / H0 = 977.79 / H0 Gyr
         val hubbleTimeGyr = 977.79 / h0
-        val ageGyr = if (omegaLambda > 0.001) {
-            val term = (1.0 + sqrt(omegaLambda)) / sqrt(max(0.01, omegaM))
-            ((2.0 / (3.0 * sqrt(omegaLambda))) * ln(term)) * hubbleTimeGyr
-        } else {
+        fun cosmicAge(a: Double): Double {
+            val n = 4096
+            val step = a / n
+            return hubbleTimeGyr * (0 until n).sumOf { i ->
+                val x = (i + 0.5) * step
+                val e2 = omegaRadiation + omegaM*x + omegaK*x*x + omegaLambda*x*x*x*x
+                require(e2.isFinite() && e2 > 0)
+                x / sqrt(e2) * step
+            }
+        }
+        val ageGyr = cosmicAge(1.0) else {
             (2.0 / 3.0) * hubbleTimeGyr
         }
 
@@ -148,7 +156,7 @@ class BigBangCosmologyEngine @Inject constructor() {
 
             // Comoving distance integral from 0 to z
             var comovingIntegral = 0.0
-            val subSteps = 100
+            val subSteps = 4096
             val subDz = z / subSteps
             for (j in 0 until subSteps) {
                 val subZ = (j + 0.5) * subDz
@@ -161,7 +169,12 @@ class BigBangCosmologyEngine @Inject constructor() {
                 comovingIntegral += (1.0 / subEz) * subDz
             }
 
-            val dComovingMpc = (SPEED_OF_LIGHT_KM_S / h0) * comovingIntegral
+            val transverse = when {
+                omegaK > 1e-10 -> sinh(sqrt(omegaK)*comovingIntegral)/sqrt(omegaK)
+                omegaK < -1e-10 -> sin(sqrt(-omegaK)*comovingIntegral)/sqrt(-omegaK)
+                else -> comovingIntegral
+            }
+            val dComovingMpc = (SPEED_OF_LIGHT_KM_S / h0) * transverse
             val dLumGpc = ((1.0 + z) * dComovingMpc) / 1000.0
             val dAngGpc = if (z > 0) (dComovingMpc / (1.0 + z)) / 1000.0 else 0.0
 
@@ -169,7 +182,7 @@ class BigBangCosmologyEngine @Inject constructor() {
                 ExpansionCurvePoint(
                     redshiftZ = z,
                     scaleFactorA = (a * 10000.0).roundToLong() / 10000.0,
-                    timeGyr = ((ageGyr * (a.pow(1.5))) * 100.0).roundToLong() / 100.0,
+                    timeGyr = (cosmicAge(a) * 100.0).roundToLong() / 100.0,
                     hubbleParamH = (hz * 10.0).roundToLong() / 10.0,
                     luminosityDistGpc = (dLumGpc * 100.0).roundToLong() / 100.0,
                     angularDiameterDistGpc = (dAngGpc * 100.0).roundToLong() / 100.0
