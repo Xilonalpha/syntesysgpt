@@ -57,7 +57,7 @@ class DataNormalizer @Inject constructor() {
             "km", "kilometers", "kilometer" -> "km"
             "m", "meters", "meter" -> "m"
             "deg", "degrees", "degree" -> "deg"
-            "magnitude" -> "Mw"
+            "magnitude" -> "magnitude"
             "celsius", "°c" -> "°C"
             "fahrenheit", "°f" -> "°F"
             "hpa", "millibar", "mb" -> "hPa"
@@ -72,6 +72,7 @@ class DataNormalizer @Inject constructor() {
     }
 
     fun calculateDistance(loc1: GeoLocation, loc2: GeoLocation): Double {
+        require(listOf(loc1, loc2).all { it.latitude.isFinite() && it.longitude.isFinite() && it.latitude in -90.0..90.0 && it.longitude in -180.0..180.0 })
         val R = 6371.0 // Earth's radius in km
         val lat1 = Math.toRadians(loc1.latitude)
         val lat2 = Math.toRadians(loc2.latitude)
