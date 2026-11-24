@@ -27,8 +27,10 @@ class HypothesisEngine @Inject constructor() {
         require(observations.all { it.investigationId == investigationId })
         require(anomalies.all { it.investigationId == investigationId })
         require(correlations.all { it.investigationId == investigationId })
+        val observationIds = observations.map { it.id }.toSet()
+        require(anomalies.all { it.observationId in observationIds })
         fun proposal(title: String, description: String, test: String, data: String) = Hypothesis(
-            id = java.util.UUID.randomUUID().toString(), investigationId = investigationId,
+            id = java.util.UUID.nameUUIDFromBytes((investigationId + ":hypothesis:" + title).toByteArray(Charsets.UTF_8)).toString(), investigationId = investigationId,
             title = title, description = description, evidenceCount = 0,
             contradictionCount = 0, confidence = 0f,
             discriminatingTests = listOf(DiscriminatingTest(test, data, "Not established", "Not scheduled")),
