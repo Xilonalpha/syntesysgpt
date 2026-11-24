@@ -28,6 +28,30 @@ class ExperimentManifestStore(private val root: File, private val evidence: Fits
         } finally { temp.delete() }
         return id
     }
+    data class ArchiveEntry(val id: String, val manifest: Manifest)
+    data class ArchivePage(val entries: List<ArchiveEntry>, val rejected: List<String>, val nextOffset: Int?)
+
+    /** Bounded verification of local manifests; corrupt evidence is never listed as valid. */
+    fun listVerified(offset: Int = 0, limit: Int = 10): ArchivePage {
+        require(offset >= 0 && limit in 1..50)
+        if (!root.exists()) return ArchivePage(emptyList(), emptyList(), null)
+        val files = checkNotNull(root.listFiles()).filter { it.name.endsWith(".manifest") }
+            .sortedBy { it.name }
+        val entries = mutableListOf<ArchiveEntry>()
+        val rejected = mutableListOf<String>()
+        val page = files.drop(offset).take(limit)
+        for (file in page) {
+            val id = file.name.removeSuffix(".manifest")
+            try {
+                entries.add(ArchiveEntry(id, readVerified(id)))
+            } catch (e: Exception) {
+                rejected.add(file.name)
+            }
+        }
+        val next = offset.toLong() + page.size
+        return ArchivePage(entries, rejected, if (next < files.size) next.toInt() else null)
+    }
+
     data class Manifest(val tic: Long, val algorithm: String, val createdMs: Long, val sources: List<Source>)
     fun readVerified(id: String): Manifest {
         require(UUID.fromString(id).toString() == id)
