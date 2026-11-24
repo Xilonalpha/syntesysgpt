@@ -51,6 +51,7 @@ class JwstTransmissionSpectroscopyEngine @Inject constructor() {
         val mPlanetKg = planetMassEarth * M_EARTH_KG
         val rPlanetM = planetRadiusEarth * R_EARTH_M
         val rStarM = stellarRadiusSun * R_SUN_M
+        require(rPlanetM.isFinite() && rStarM.isFinite() && rPlanetM < rStarM)
         val gSurface = (G_CONST * mPlanetKg) / (rPlanetM.pow(2))
 
         // Mean molecular weight mu (amu)
@@ -114,8 +115,8 @@ class JwstTransmissionSpectroscopyEngine @Inject constructor() {
         val c1 = 1.191e8 // W * um^4 / (m^2 * sr)
         val c2 = 14387.7 // um * K
         val wl = 7.5
-        val exponent = (c2 / (wl * tK)).coerceIn(0.1, 50.0)
-        return (c1 / (wl.pow(5) * (exp(exponent) - 1.0))).coerceAtLeast(1e-10)
+        val exponent = c2 / (wl * tK)
+        return c1 / (wl.pow(5) * Math.expm1(exponent))
     }
 
     /** Caller-supplied spectral bins; provenance is not established by this calculation. */
