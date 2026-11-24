@@ -164,8 +164,14 @@ class XilonRepository @Inject constructor(
         require(batchSize in 1..10)
         val targets = selectIndependentTicTargets(maxTmag, page, batchSize)
         val results = mutableListOf<com.synthesis.domain.model.exoplanet.MastSyncResult>()
+        var failedTargets = 0
         for (tic in targets) {
-            val observation = runIndependentSearch(tic, synchronization).getOrNull() ?: continue
+            val observation = runIndependentSearch(tic, synchronization).getOrElse {
+                if (it is kotlinx.coroutines.CancellationException) throw it
+                failedTargets++
+                continueIndependentTargetLog(tic, it)
+                null
+            } ?: continue
             val detection = observation.periodicDetection
             if (!detection.isDetected || !detection.bestPeriodDays.isFinite() ||
                 detection.bestPeriodDays <= 0.0 || !detection.transitSnr.isFinite() ||
@@ -177,7 +183,12 @@ class XilonRepository @Inject constructor(
             onSignal(observation, comparison, comparisonEvidence)
             results.add(observation)
         }
+        check(failedTargets == 0) { "Independent survey page incomplete: $failedTargets/${targets.size} targets failed; page retained for retry" }
         return results
+    }
+
+    private fun continueIndependentTargetLog(tic: String, error: Throwable) {
+        android.util.Log.w("XilonSurvey", "Independent analysis failed for TIC $tic", error)
     }
 
     suspend fun runIndependentSearch(
