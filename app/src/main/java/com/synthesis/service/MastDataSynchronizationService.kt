@@ -112,6 +112,27 @@ class MastDataSynchronizationService @Inject constructor(
             }
         }
 
+    data class TimingAuditReport(val experimentId: String, val referencePeriodDays: Double,
+        val checks: List<ArchivedTimingAudit>, val matchingChecks: Int, val status: String)
+
+    suspend fun followUpArchivedTiming(experimentId: String, referencePeriodDays: Double,
+        maxChecks: Int = 3): TimingAuditReport {
+        require(referencePeriodDays.isFinite() && referencePeriodDays > 0)
+        val checks = auditArchivedTiming(experimentId, maxChecks)
+        val matching = checks.count { check ->
+            check.status == "CONDITIONAL_COMPATIBILITY" && check.periodDays?.let {
+                abs(it-referencePeriodDays)/referencePeriodDays <= 0.01
+            } == true
+        }
+        val status = when {
+            checks.isEmpty() -> "INSUFFICIENT_SECTORS"
+            checks.any { it.status == "ASSESSMENT_INCOMPLETE" } -> "ASSESSMENT_INCOMPLETE"
+            matching == checks.size -> "CONDITIONAL_COMPATIBILITY"
+            else -> "COMPATIBILITY_NOT_ESTABLISHED"
+        }
+        return TimingAuditReport(experimentId, referencePeriodDays, checks, matching, status)
+    }
+
     /** Offline replay; no network requests and no claim of scientific confirmation. */
     suspend fun replayExperiment(id: String) = withContext(Dispatchers.IO) {
         val evidence = FitsEvidenceStore(java.io.File(context.filesDir, "fits_evidence"))
