@@ -626,17 +626,8 @@ fun AdvancedDiscoveryScreen(
     if (showDeblendDialog) {
         CustomDeblendDialog(
             onDismiss = { showDeblendDialog = false },
-            onDeblend = { name, tic, depth, tMag, nMag, sep, rad ->
-                viewModel.rescueCustomCandidate(
-                    name = name,
-                    ticId = tic,
-                    status = "False Positive (FP - Blended)",
-                    depthPpm = depth,
-                    targetMag = tMag,
-                    neighborMag = nMag,
-                    sepArcsec = sep,
-                    radSun = rad
-                )
+            onDeblend = { depth, depthError, target, targetError, contaminant, contaminantError ->
+                viewModel.calculateMeasuredDilution(depth, depthError, target, targetError, contaminant, contaminantError)
                 showDeblendDialog = false
             }
         )
@@ -1277,16 +1268,14 @@ private fun FalsePositiveRescueView(
                         Icon(Icons.Default.FilterCenterFocus, contentDescription = null, tint = AccentAmber)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            "GAIA DR3 DILUTION DE-BLENDER (UNLIMITED)",
+                            "CORECȚIE CONTAMINARE FOTOMETRICĂ",
                             style = MaterialTheme.typography.titleSmall,
                             color = AccentAmber
                         )
                     }
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        "TESS pixels are large (21\"). Automated algorithms mislabel shallow transits contaminated by background stars as " +
-                                "False Positives (grazing eclipsing binaries). By calculating the exact Gaia flux dilution factor, " +
-                                "we invert the true transit depth and rescue genuine rocky Super-Earths!",
+                        "Corecție condițională pe fluxuri măsurate. Nu modifică clasificarea NASA și nu confirmă o planetă.",
                         style = MaterialTheme.typography.bodySmall,
                         color = TextSecondary
                     )
@@ -1298,7 +1287,7 @@ private fun FalsePositiveRescueView(
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("DE-BLEND CUSTOM GAIA CANDIDATE")
+                        Text("INTRODU FLUXURI MĂSURATE")
                     }
                 }
             }
@@ -1711,69 +1700,36 @@ private fun AstroMetricItem(label: String, value: String, highlightColor: Color 
 @Composable
 private fun CustomDeblendDialog(
     onDismiss: () -> Unit,
-    onDeblend: (name: String, tic: String, depth: Double, tMag: Double, nMag: Double, sep: Double, rad: Double) -> Unit
+    onDeblend: (Double, Double, Double, Double, Double, Double) -> Unit
 ) {
-    var name by remember { mutableStateOf("Gaia Deblended Candidate") }
-    var depth by remember { mutableStateOf("450") }
-    var targetMag by remember { mutableStateOf("10.8") }
-    var neighborMag by remember { mutableStateOf("10.2") }
-    var sepArcsec by remember { mutableStateOf("5.4") }
-    var radSun by remember { mutableStateOf("0.95") }
-
+    val labels = listOf("Adâncime (ppm)", "Incertitudine adâncime (ppm)", "Flux țintă",
+        "Incertitudine flux țintă", "Flux contaminant", "Incertitudine flux contaminant")
+    val values = remember { mutableStateOf(List(6) { "" }) }
+    val parsed = values.value.map { it.trim().replace(',', '.').toDoubleOrNull() }
+    val valid = parsed.all { it != null && it.isFinite() } &&
+        (parsed[0] ?: 0.0) in 0.0..1e6 && (parsed[0] ?: 0.0) > 0 &&
+        (parsed[1] ?: 0.0) > 0 && (parsed[2] ?: 0.0) > 0 &&
+        (parsed[3] ?: 0.0) > 0 && (parsed[4] ?: -1.0) >= 0 && (parsed[5] ?: -1.0) >= 0
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Gaia Dilution De-Blender (Nelimitat)", color = AccentGreen) },
+        title = { Text("Corecție fotometrică") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Candidate Name") })
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = depth,
-                        onValueChange = { depth = it },
-                        label = { Text("Obs Depth (ppm)") },
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = sepArcsec,
-                        onValueChange = { sepArcsec = it },
-                        label = { Text("Separation (\")") },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = targetMag,
-                        onValueChange = { targetMag = it },
-                        label = { Text("Target Gaia Mag") },
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = neighborMag,
-                        onValueChange = { neighborMag = it },
-                        label = { Text("Neighbor Gaia Mag") },
-                        modifier = Modifier.weight(1f)
-                    )
+            Column(modifier = Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Fluxuri măsurate în aceeași bandă și apertură. Rezultatul nu confirmă sursa eclipsei.")
+                labels.forEachIndexed { i, label ->
+                    OutlinedTextField(value = values.value[i], onValueChange = { v ->
+                        values.value = values.value.toMutableList().also { it[i] = v }
+                    }, label = { Text(label) }, singleLine = true)
                 }
             }
         },
         confirmButton = {
-            Button(
-                onClick = {
-                    val d = depth.toDoubleOrNull() ?: 400.0
-                    val tm = targetMag.toDoubleOrNull() ?: 10.5
-                    val nm = neighborMag.toDoubleOrNull() ?: 10.0
-                    val s = sepArcsec.toDoubleOrNull() ?: 5.0
-                    val r = radSun.toDoubleOrNull() ?: 1.0
-                    onDeblend(name, "999888111", d, tm, nm, s, r)
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = Color.Black)
-            ) {
-                Text("RESCUE PLANET")
-            }
+            Button(enabled = valid, onClick = {
+                val v = parsed.map { requireNotNull(it) }
+                onDeblend(v[0], v[1], v[2], v[3], v[4], v[5])
+            }) { Text("Calculează") }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("CANCEL", color = TextSecondary) }
-        }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Anulează") } }
     )
 }
 
