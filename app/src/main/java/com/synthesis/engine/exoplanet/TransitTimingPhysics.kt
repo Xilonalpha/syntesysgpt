@@ -39,6 +39,29 @@ object TransitTimingPhysics {
             unambiguous && kotlin.math.abs(residual) <= 3 * uncertainty, unambiguous)
     }
 
+    /** Predict an independent held-out transit from a fitted ephemeris, including covariance.
+     * Caller must establish independent acquisition and a common time scale. */
+    fun compareHeldOut(ephemeris: LinearEphemeris, epochBjd: Double, errorDays: Double): PhaseComparison {
+        require(epochBjd.isFinite() && epochBjd > 2400000 && errorDays.isFinite() && errorDays > 0)
+        require(ephemeris.epochDays.isFinite() && ephemeris.epochDays > 2400000)
+        val p = ephemeris.periodDays
+        val se = ephemeris.epochErrorDays
+        val sp = ephemeris.periodErrorDays
+        val cov = ephemeris.epochPeriodCovariance
+        require(p.isFinite() && p > 0 && se.isFinite() && se > 0 && sp.isFinite() && sp > 0)
+        require(cov.isFinite() && kotlin.math.abs(cov) <= se * sp)
+        val cycles = (epochBjd - ephemeris.epochDays) / p
+        require(cycles.isFinite() && kotlin.math.abs(cycles) < 1e9)
+        val n = kotlin.math.round(cycles).toLong()
+        val x = n.toDouble()
+        val variance = se * se + x * x * sp * sp + 2 * x * cov
+        require(variance.isFinite() && variance >= 0)
+        val uncertainty = kotlin.math.hypot(sqrt(variance), errorDays)
+        val residual = (epochBjd - ephemeris.epochDays) - x * p
+        val unique = kotlin.math.abs(residual) + 3 * uncertainty < p / 2
+        return PhaseComparison(n, residual, uncertainty, unique && kotlin.math.abs(residual) <= 3 * uncertainty, unique)
+    }
+
     fun fit(observations: List<TransitTiming>): LinearEphemeris {
         require(observations.size >= 3)
         val p = observations.sortedBy { it.cycle }
