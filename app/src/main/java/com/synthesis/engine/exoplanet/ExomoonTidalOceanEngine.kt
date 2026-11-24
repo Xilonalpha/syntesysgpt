@@ -21,6 +21,20 @@ import kotlin.math.sqrt
 @Singleton
 class ExomoonTidalOceanEngine @Inject constructor() {
 
+    /** Circular coplanar scenario; not an orbital stability proof or ocean detection. */
+    data class TidalScenario(val hillRadiusM: Double, val progradeLimitM: Double, val heatFluxWm2: Double)
+    fun evaluateTidalScenario(planetKg: Double, starKg: Double, planetOrbitM: Double,
+        moonRadiusM: Double, moonOrbitM: Double, eccentricity: Double, k2OverQ: Double): TidalScenario {
+        require(listOf(planetKg, starKg, planetOrbitM, moonRadiusM, moonOrbitM).all { it.isFinite() && it > 0 })
+        require(planetKg < starKg && moonOrbitM > moonRadiusM)
+        require(eccentricity.isFinite() && eccentricity in 0.0..0.1 && k2OverQ.isFinite() && k2OverQ in 0.0..1.5)
+        val hill = planetOrbitM * (planetKg/(3*starKg)).pow(1.0/3)
+        val n = sqrt(G_CONST*planetKg/moonOrbitM.pow(3))
+        val flux = 10.5*k2OverQ*G_CONST*planetKg.pow(2)*moonRadiusM.pow(3)*n*eccentricity.pow(2)/(4*PI*moonOrbitM.pow(6))
+        require(hill.isFinite() && hill > 0 && flux.isFinite() && flux >= 0)
+        return TidalScenario(hill, 0.489*hill, flux)
+    }
+
     companion object {
         const val G_CONST = 6.67430e-11 // m^3 / (kg * s^2)
         const val M_JUPITER_KG = 1.898e27
