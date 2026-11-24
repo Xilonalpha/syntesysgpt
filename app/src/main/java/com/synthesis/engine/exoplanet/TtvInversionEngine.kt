@@ -38,4 +38,8 @@ class TtvInversionEngine @Inject constructor() {
         throw UnsupportedOperationException("Scientific analysis unavailable: observational validation required")
     }
 
+
+    /** Conditional linear ephemeris; no companion inference. */
+    fun fitMeasuredTimings(observations: List<TransitTiming>): LinearEphemeris =
+        TransitTimingPhysics.fit(observations)
 }
