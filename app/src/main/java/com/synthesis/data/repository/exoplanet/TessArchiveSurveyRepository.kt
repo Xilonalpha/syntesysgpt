@@ -83,19 +83,23 @@ class TessArchiveSurveyRepository @Inject constructor(
                     val starRadius = detection.star.radiusSun ?: return@let
 
                     val passesDwarfFilter = !criteria.dwarfStarsOnly || starRadius <= 1.35
-                    val passesSnr = detection.signalToNoiseRatio >= criteria.minSnr
-                    val passesDepth = detection.transitDepthPpm >= criteria.minDepthPpm
+                    val passesSnr = detection.signalToNoiseRatio.isFinite() && detection.signalToNoiseRatio >= criteria.minSnr
+                    val passesDepth = detection.transitDepthPpm.isFinite() && detection.transitDepthPpm > 0.0 && detection.transitDepthPpm < 1_000_000.0 && detection.transitDepthPpm >= criteria.minDepthPpm
 
-                    if (passesDwarfFilter && passesSnr && passesDepth) {
+                    if (starMag.isFinite() && starMag <= criteria.maxTmag &&
+                        starRadius.isFinite() && starRadius > 0.0 &&
+                        detection.transitDurationHours.isFinite() && detection.transitDurationHours > 0.0 &&
+                        passesDwarfFilter && passesSnr && passesDepth) {
                         val depthFraction = detection.transitDepthPpm / 1_000_000.0
                         val magDelta = if (depthFraction in 0.0..0.9) {
                             -2.5 * log10((1.0 - depthFraction).coerceAtLeast(1e-5))
                         } else 0.0
 
                         val radius = detection.derivedPlanetRadiusEarth ?: return@let
+                        if (!radius.isFinite() || radius <= 0.0) return@let
                         val rationale = "Semnal de catalog reanalizat, nevalidat: adâncime ${detection.transitDepthPpm.toInt()} ppm " +
                                 "(Δm: ${String.format(Locale.US, "%.4f", magDelta)} mag), durată ${String.format(Locale.US, "%.1f", detection.transitDurationHours)}h, " +
-                                "SNR ${String.format(Locale.US, "%.1f", detection.signalToNoiseRatio)}σ pe stea pitică (Tmag ${String.format(Locale.US, "%.1f", starMag)})."
+                                "SNR ${String.format(Locale.US, "%.1f", detection.signalToNoiseRatio)}σ pe stea (Tmag ${String.format(Locale.US, "%.1f", starMag)})."
 
                         val discovery = TessSurveyDiscovery(
                             ticId = detection.star.ticId,
@@ -115,7 +119,7 @@ class TessArchiveSurveyRepository @Inject constructor(
                         discoveries.add(discovery)
 
                         // 3. Save discovery in Room Database
-                        xilonRepository.saveDiscovery(detection, "Descoperire automată WorkManager TESS Survey Scout")
+                        xilonRepository.saveDiscovery(detection, "Semnal nevalidat WorkManager TESS Survey Scout")
 
                         val researchEntity = SynthesizedResearchEntity(
                             id = UUID.randomUUID().toString(),
