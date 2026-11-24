@@ -30,6 +30,7 @@ private fun formatSectorLabel(sectorNum: Int): String =
 @HiltViewModel
 class XilonViewModel @Inject constructor(
     private val xilonRepository: XilonRepository,
+    private val mastSynchronization: com.synthesis.service.MastDataSynchronizationService,
     val geminiService: GeminiAstrophysicsService,
     private val synthesizedResearchRepository: com.synthesis.data.repository.SynthesizedResearchRepository,
     private val transitDipScannerUtility: TransitDipScannerUtility,
@@ -306,6 +307,32 @@ class XilonViewModel @Inject constructor(
 
     fun validateCandidate(res: XilonDetectionResult): com.synthesis.domain.model.validation.PreReportValidationDossier {
         return validationEngine.validateCandidate(res)
+    }
+
+    private val _independentStatus = MutableStateFlow("")
+    val independentStatus = _independentStatus.asStateFlow()
+    private val _independentRunning = MutableStateFlow(false)
+    val independentRunning = _independentRunning.asStateFlow()
+
+    fun runIndependentScan(ticId: String) {
+        if (_independentRunning.value) return
+        _independentRunning.value = true
+        _independentStatus.value = "Downloading chronological TESS FITS..."
+        viewModelScope.launch {
+            try {
+                val result = xilonRepository.runIndependentSearch(ticId, mastSynchronization).getOrThrow()
+                val bls = result.periodicDetection
+                _independentStatus.value = "TIC ${result.target.ticId} | ${result.dataPoints.size} points | " +
+                    (if (bls.isDetected) "Preliminary signal: P=${bls.bestPeriodDays} d; SNR=${bls.transitSnr}" else "No accepted periodic signal") +
+                    " | Novelty not assessed | Experiment: ${result.experimentId}"
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _independentStatus.value = "Incomplete search: ${e.message}"
+            } finally {
+                _independentRunning.value = false
+            }
+        }
     }
 
     fun runScan(ticIdInput: String, periodDaysInput: Double? = null) {
