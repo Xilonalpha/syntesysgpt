@@ -153,6 +153,31 @@ class XilonRepository @Inject constructor(
         }.distinct().take(pageSize)
     }
 
+    /** Bounded independent survey; results remain unverified and retain archived evidence. */
+    suspend fun runIndependentSurveyPage(
+        maxTmag: Double,
+        page: Int,
+        batchSize: Int,
+        synchronization: com.synthesis.service.MastDataSynchronizationService
+    ): List<com.synthesis.domain.model.exoplanet.MastSyncResult> {
+        require(batchSize in 1..10)
+        val targets = selectIndependentTicTargets(maxTmag, page, batchSize)
+        val results = mutableListOf<com.synthesis.domain.model.exoplanet.MastSyncResult>()
+        for (tic in targets) {
+            val observation = runIndependentSearch(tic, synchronization).getOrNull() ?: continue
+            val detection = observation.periodicDetection
+            if (!detection.isDetected || !detection.bestPeriodDays.isFinite() ||
+                detection.bestPeriodDays <= 0.0 || !detection.transitSnr.isFinite() ||
+                !detection.transitDepthPpm.isFinite() || detection.transitDepthPpm <= 0.0 ||
+                detection.transitDepthPpm >= 1_000_000.0) continue
+            val experimentId = observation.experimentId ?: continue
+            val comparison = compareCatalogPeriods(tic, detection.bestPeriodDays)
+            synchronization.archiveCatalogComparison(experimentId, detection.bestPeriodDays, comparison)
+            results.add(observation)
+        }
+        return results
+    }
+
     suspend fun runIndependentSearch(
         ticId: String,
         synchronization: com.synthesis.service.MastDataSynchronizationService
