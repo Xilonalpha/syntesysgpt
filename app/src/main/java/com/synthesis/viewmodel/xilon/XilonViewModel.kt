@@ -333,7 +333,16 @@ class XilonViewModel @Inject constructor(
                         val comparisonId = mastSynchronization.archiveCatalogComparison(
                             requireNotNull(result.experimentId), bls.bestPeriodDays, status)
                         "$status | Comparison: $comparisonId"
-                    } else "Novelty not assessed") + " | Experiment: ${result.experimentId}"
+                    } else "Novelty not assessed") + " | Experiment: ${result.experimentId}" +
+                    (bls.residualNoise?.let { noise ->
+                        val adjusted = bls.blockAdjustedSnr
+                        " | " + String.format(java.util.Locale.US,
+                            "Residual rho1=%.3f; beta=%.2f; blocks=%d", noise.lagOneCorrelation,
+                            noise.blockNoiseRatio, noise.completeBlocks) +
+                            (adjusted?.let { String.format(java.util.Locale.US, "; adjusted SNR=%.2f", it) } ?: "") +
+                            "; exploratory, FAP uncalibrated"
+                    } ?: " | Residual noise diagnostic unavailable") +
+                    " | Products: ${result.products.size}; independent confirmation required"
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
