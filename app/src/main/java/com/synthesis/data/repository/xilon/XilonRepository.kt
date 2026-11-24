@@ -221,6 +221,29 @@ class XilonRepository @Inject constructor(
         }
     }
 
+    /** Preliminary period-only comparison, not a novelty or identity confirmation. */
+    suspend fun compareCatalogPeriods(tic: String, periodDays: Double): String = withContext(Dispatchers.IO) {
+        require(tic.matches(Regex("[0-9]+")) && periodDays.isFinite() && periodDays > 0)
+        try {
+            val confirmed = exoplanetArchiveApi.queryConfirmedTable(
+                "SELECT pl_name,tic_id,pl_orbper FROM pscomppars WHERE tic_id='TIC $tic'")
+            val candidates = exoplanetArchiveApi.queryToiTable(
+                "SELECT toi,tid,pl_orbper FROM toi WHERE tid=$tic")
+            val periods = confirmed.map { it.plOrbPer } + candidates.map { it.plOrbPer }
+            val valid = periods.filterNotNull().filter { it.isFinite() && it > 0 }
+            when {
+                valid.any { p -> listOf(0.5, 1.0, 2.0).any { h -> kotlin.math.abs(periodDays / (p * h) - 1.0) <= 0.02 } } ->
+                    "CATALOG_PERIOD_OR_HARMONIC_MATCH"
+                valid.size != periods.size -> "CATALOG_PERIODS_INCOMPLETE"
+                else -> "NO_PERIOD_MATCH_IN_QUERIED_TABLES; NOVELTY_UNVERIFIED"
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            "CATALOG_CHECK_INCOMPLETE"
+        }
+    }
+
     suspend fun crossMatchArchivalDatabases(cleanTic: String): ArchivalCrossMatch = withContext(Dispatchers.IO) {
         require(cleanTic.matches(Regex("[0-9]+"))) { "Invalid TIC identifier" }
         try {
