@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-if [[ $# != 4 && $# != 7 ]]; then echo "Usage: CSV EXPECTED_PERIOD FITS TIC [RADIUS MASS TEFF]" >&2; exit 2; fi
+if [[ $# != 4 && $# != 7 && $# != 8 ]]; then echo "Usage: CSV EXPECTED_PERIOD FITS TIC [RADIUS MASS TEFF [constrained]]" >&2; exit 2; fi
 CSV=$(realpath "$1"); FITS=$(realpath "$3")
 cd "$(dirname "$0")/.."
 python3 scripts/verify_tess_manifest.py "$CSV" "$FITS" "$4"
