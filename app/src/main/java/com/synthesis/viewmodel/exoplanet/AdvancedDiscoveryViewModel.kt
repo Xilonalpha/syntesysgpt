@@ -7,10 +7,11 @@ import com.synthesis.data.repository.exoplanet.AdvancedDiscoveryRepository
 import com.synthesis.domain.model.exoplanet.*
 import com.synthesis.engine.cosmology.BigBangCosmologyEngine
 import com.synthesis.engine.cosmology.BlackHoleRelativityEngine
-import com.synthesis.engine.exoplanet.RomanMicrolensingEngine
+import com.synthesis.engine.exoplanet.*
 import com.synthesis.service.*
 import com.synthesis.service.worker.MastBatchWorkManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -47,6 +48,21 @@ enum class AdvancedTab(val title: String, val isYear2026: Boolean = false) {
     SKY_RADAR("Live Sky Radar & Countdowns", false),
     TELESCOPE_CONTROL("Telescope Physical GoTo & Motors", false),
     LIVE_PHOTOMETRY("Live Photometry & Official Report", false)
+}
+
+sealed interface ScientificCalculationState {
+    object Idle : ScientificCalculationState
+    data class Running(val module: String) : ScientificCalculationState
+    data class Success(val result: ScientificCalculationResult) : ScientificCalculationState
+    data class Error(val message: String) : ScientificCalculationState
+}
+
+sealed interface ScientificCalculationResult {
+    data class Timing(val value: LinearEphemeris) : ScientificCalculationResult
+    data class Aliases(val value: List<OrbitalAlias>) : ScientificCalculationResult
+    data class Contrast(val value: SpectralContrast) : ScientificCalculationResult
+    data class Reaction(val value: ReactionEnergy) : ScientificCalculationResult
+    data class Asymmetry(val value: TransitAsymmetryEstimate) : ScientificCalculationResult
 }
 
 @HiltViewModel
@@ -909,7 +925,7 @@ class AdvancedDiscoveryViewModel @Inject constructor(
                 currentPhase = if (vs.isTransitDetected) "Semnal preliminar nevalidat" else "Monitorizare Senzor Optic",
                 isObserving = false
             )
-            _alertSuccessMessage.value = "Datele fotometrice din fluxul video (${convertedPoints.size} măsurători reale) au fost transferate în protocolul oficial ETD / AAVSO."
+            _alertSuccessMessage.value = "Datele fotometrice (${convertedPoints.size} puncte) au fost transferate în sesiunea locală; proveniența rămâne neverificată."
         } else {
             _alertSuccessMessage.value = "Nu există încă date procesate de senzor pentru transfer."
         }
@@ -928,4 +944,77 @@ class AdvancedDiscoveryViewModel @Inject constructor(
     fun saveCurrentModuleToResearchArchive(tab: AdvancedTab) {
         _alertSuccessMessage.value = "Export indisponibil pentru ${tab.title}: lipsesc dovezile observaționale reproductibile."
     }
+
+    private val _scientificCalculation = MutableStateFlow<ScientificCalculationState>(ScientificCalculationState.Idle)
+    val scientificCalculation = _scientificCalculation.asStateFlow()
+    private var scientificJob: Job? = null
+    private var scientificGeneration = 0L
+
+    // Called from the main thread. Only the most recent request may publish a result.
+    fun cancelScientificCalculation() {
+        scientificGeneration++
+        scientificJob?.cancel()
+        scientificJob = null
+        _scientificCalculation.value = ScientificCalculationState.Idle
+    }
+
+    private fun runScientificCalculation(module: String, calculate: suspend () -> ScientificCalculationResult) {
+        cancelScientificCalculation()
+        val generation = scientificGeneration
+        _scientificCalculation.value = ScientificCalculationState.Running(module)
+        scientificJob = viewModelScope.launch {
+            try {
+                val result = calculate()
+                if (generation == scientificGeneration) {
+                    _scientificCalculation.value = ScientificCalculationState.Success(result)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: IllegalArgumentException) {
+                if (generation == scientificGeneration) {
+                    _scientificCalculation.value = ScientificCalculationState.Error("Parametri invalizi sau date insuficiente.")
+                }
+            } catch (e: Exception) {
+                if (generation == scientificGeneration) {
+                    _scientificCalculation.value = ScientificCalculationState.Error("Calculul nu a putut fi finalizat.")
+                }
+            }
+        }
+    }
+
+    fun calculateTimings(observations: List<TransitTiming>) {
+        val input = observations.toList()
+        runScientificCalculation("TTV") {
+            ScientificCalculationResult.Timing(repository.fitMeasuredTimings(input))
+        }
+    }
+
+    fun calculateAliases(firstEpoch: Double, secondEpoch: Double, firstError: Double,
+        secondError: Double, correlation: Double, minPeriod: Double, maxPeriod: Double) =
+        runScientificCalculation("Armonici orbitale") {
+            ScientificCalculationResult.Aliases(repository.enumerateMeasuredAliases(firstEpoch,
+                secondEpoch, firstError, secondError, correlation, minPeriod, maxPeriod))
+        }
+
+    fun calculateSpectralContrast(bins: List<MeasuredSpectralBin>,
+        feature: ClosedFloatingPointRange<Double>, continuum: ClosedFloatingPointRange<Double>) {
+        val input = bins.toList()
+        runScientificCalculation("Contrast spectral") {
+            ScientificCalculationResult.Contrast(repository.evaluateMeasuredContrast(input, feature, continuum))
+        }
+    }
+
+    fun calculateReaction(temperatureK: Double, standardGibbs: Double, species: List<ReactionSpecies>) {
+        val input = species.toList()
+        runScientificCalculation("Energie Gibbs") {
+            ScientificCalculationResult.Reaction(repository.evaluateReaction(temperatureK, standardGibbs, input))
+        }
+    }
+
+    fun calculateAsymmetry(ingress: Double, egress: Double, ingressError: Double,
+        egressError: Double, correlation: Double) =
+        runScientificCalculation("Asimetrie") {
+            ScientificCalculationResult.Asymmetry(repository.evaluateMeasuredAsymmetry(ingress,
+                egress, ingressError, egressError, correlation))
+        }
 }
