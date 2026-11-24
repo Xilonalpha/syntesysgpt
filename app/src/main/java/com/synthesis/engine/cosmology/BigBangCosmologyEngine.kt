@@ -8,6 +8,17 @@ import kotlin.math.*
 @Singleton
 class BigBangCosmologyEngine @Inject constructor() {
 
+    /** Flat matter + cosmological constant model; neglects radiation. */
+    fun flatLambdaAgeGyr(h0: Double, omegaMatter: Double): Double {
+        require(h0.isFinite() && h0 > 0 && omegaMatter.isFinite() && omegaMatter > 0 && omegaMatter <= 1)
+        val hubble = KM_PER_MPC/h0/SECONDS_PER_YEAR/1e9
+        val lambda = 1-omegaMatter
+        val age = if (lambda < 1e-10) 2*hubble/3 else
+            2*hubble/(3*sqrt(lambda))*asinh(sqrt(lambda/omegaMatter))
+        require(age.isFinite() && age > 0)
+        return age
+    }
+
     companion object {
         const val SPEED_OF_LIGHT_KM_S = 299792.458
         const val KM_PER_MPC = 3.085677581e19
