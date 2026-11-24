@@ -140,24 +140,19 @@ class NasaExoFopExporterTest {
         assertNotNull(jsonStr)
         assertTrue(jsonStr.isNotBlank())
 
-        val root = JsonParser.parseString(jsonStr).asJsonObject
-        assertEquals("NASA Transiting Exoplanet Survey Satellite (TESS)", root.get("mission").asString)
-        assertEquals(2, root.get("totalDiscoveriesExported").asInt)
+        assertBlockedJson(jsonStr)
+    }
 
-        val discoveries = root.getAsJsonArray("discoveries")
-        assertEquals(2, discoveries.size())
+    private fun assertBlockedJson(json: String) {
+        val root = JsonParser.parseString(json).asJsonObject
+        assertEquals("blocked", root.get("status").asString)
+        assertFalse(root.get("submissionReady").asBoolean)
+        assertFalse(root.has("discoveries"))
+    }
 
-        val toi700 = discoveries[0].asJsonObject
-        assertEquals(150428135L, toi700.get("ticId").asLong)
-        assertEquals("TOI-700 d", toi700.get("targetName").asString)
-        assertEquals(97.0957, toi700.get("raDeg").asDouble, 0.0001)
-        assertEquals(-55.5786, toi700.get("decDeg").asDouble, 0.0001)
-        assertEquals("ICRS_J2000", toi700.get("coordFrame").asString)
-        assertEquals(860.0, toi700.get("depthPpm").asDouble, 0.1)
-        assertEquals(0.086, toi700.get("depthPercent").asDouble, 0.001)
-        assertEquals(14.8, toi700.get("signalToNoiseRatio").asDouble, 0.1)
-        assertEquals("KP", toi700.get("ctoiDisposition").asString) // Known/Confirmed Planet
-        assertTrue(toi700.get("isHabitableZone").asBoolean)
+    private fun assertBlockedCsv(csv: String) {
+        assertEquals(listOf("status,reason,submissionReady",
+            "blocked,provenance not validated,false"), csv.trim().lines())
     }
 
     @Test
@@ -167,19 +162,7 @@ class NasaExoFopExporterTest {
         assertNotNull(csvStr)
         assertTrue(csvStr.isNotBlank())
 
-        // Validate comment headers
-        assertTrue("CSV must contain NExScI specification line", csvStr.contains("Specification: NExScI ExoFOP-TESS CTOI Standard v2.4"))
-        assertTrue("CSV must contain ICRS reference frame line", csvStr.contains("Coordinate Reference Frame: ICRS J2000"))
-
-        // Validate column headers
-        assertTrue("CSV must contain column header TIC_ID", csvStr.contains("TIC_ID,TARGET_NAME,SECTOR,RA_DEG,DEC_DEG"))
-        assertTrue("CSV must contain photometric columns", csvStr.contains("DEPTH_PPM,DEPTH_PERCENT,SNR_SIGMA"))
-
-        // Validate data rows
-        assertTrue("CSV must contain TOI-700 d row", csvStr.contains("150428135"))
-        assertTrue("CSV must contain TIC 268301217 row", csvStr.contains("268301217"))
-        assertTrue("CSV must contain PC disposition for high-SNR candidate", csvStr.contains(",PC,"))
-        assertTrue("CSV must contain KP disposition for confirmed planet", csvStr.contains(",KP,"))
+        assertBlockedCsv(csvStr)
     }
 
     @Test
@@ -235,7 +218,7 @@ class NasaExoFopExporterTest {
             ),
             archivalCrossMatch = ArchivalCrossMatch(
                 canonicalName = "TIC 25155310.01",
-                status = ArchivalCatalogStatus.NASA_TOI_CANDIDATE,
+                status = ArchivalCatalogStatus.POTENTIAL_NEW_SIGNAL,
                 officialDisposition = "UNRECORDED",
                 discoveryYear = null,
                 discoveryFacility = null,
@@ -247,18 +230,15 @@ class NasaExoFopExporterTest {
             )
         )
 
-        val json = exporter.exportDetectionResultJson(sampleDetection)
-        assertNotNull(json)
-        assertTrue(json.contains("\"ticId\": 25155310"))
-        assertTrue(json.contains("\"depthPpm\": 2100.0"))
-        assertTrue(json.contains("\"signalToNoiseRatio\": 12.5"))
-        assertTrue(json.contains("\"ctoiDisposition\": \"PC\""))
+        assertBlockedJson(exporter.exportDetectionResultJson(sampleDetection))
+        assertBlockedCsv(exporter.exportDetectionResultCsv(sampleDetection))
+    }
 
-        val csv = exporter.exportDetectionResultCsv(sampleDetection)
-        assertNotNull(csv)
-        assertTrue(csv.contains("25155310"))
-        assertTrue(csv.contains("142.158400"))
-        assertTrue(csv.contains("18.235100"))
-        assertTrue(csv.contains("2100.0"))
+    @Test
+    fun testSingleAndTicExportsRejectUnverifiedRecords() = runBlocking {
+        assertBlockedJson(requireNotNull(exporter.exportSingleDiscoveryJson(1)))
+        assertBlockedCsv(requireNotNull(exporter.exportSingleDiscoveryCsv(1)))
+        assertBlockedJson(requireNotNull(exporter.exportDiscoveryByTicJson("150428135")))
+        assertBlockedCsv(requireNotNull(exporter.exportDiscoveryByTicCsv("150428135")))
     }
 }
