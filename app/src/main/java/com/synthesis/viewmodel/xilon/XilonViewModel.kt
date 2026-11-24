@@ -181,18 +181,8 @@ class XilonViewModel @Inject constructor(
     }
 
     private fun computeValidatedSectorLive(sectorHint: Int? = null): String {
-        val sectorNum = (sectorHint ?: 58).coerceIn(1, 83)
-        val audit = validationEngine.auditTessPointing(
-            ticId = "LIVE_SCAN_${System.currentTimeMillis()}",
-            raDeg = 90.0,
-            decDeg = -20.0,
-            claimedSectorStr = formatSectorLabel(sectorNum)
-        )
-        return if (audit.pointingMismatchFlag && audit.suggestedCorrectSector.isNotBlank()) {
-            audit.suggestedCorrectSector
-        } else {
-            formatSectorLabel(sectorNum)
-        }
+        return sectorHint?.takeIf { it > 0 }?.let { "${formatSectorLabel(it)} (unverified)" }
+            ?: "Sector unknown (unverified)"
     }
 
     fun selectGeminiModel(model: String) {
@@ -328,44 +318,11 @@ class XilonViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = XilonUiState.Scanning(
                 ticId = cleanTic,
-                stage = "Connecting to Space Telescope Science Institute (MAST)...",
+                stage = "Requesting archival data and running analysis...",
                 stageIndex = 1,
-                totalStages = 5
+                totalStages = 1
             )
-            delay(400)
-
-            _uiState.value = XilonUiState.Scanning(
-                ticId = cleanTic,
-                stage = "Retrieving host star Teff, radius, and distance from TIC catalog...",
-                stageIndex = 2,
-                totalStages = 5
-            )
-            delay(500)
-
-            _uiState.value = XilonUiState.Scanning(
-                ticId = cleanTic,
-                stage = "Ingesting photometric photon flux series across observation sectors...",
-                stageIndex = 3,
-                totalStages = 5
-            )
-
             val scanResult = xilonRepository.runAutonomousDetection(cleanTic, periodDaysInput)
-
-            _uiState.value = XilonUiState.Scanning(
-                ticId = cleanTic,
-                stage = "Inspecting archived phase-folded photometry (not independent TLS)...",
-                stageIndex = 4,
-                totalStages = 5
-            )
-            delay(500)
-
-            _uiState.value = XilonUiState.Scanning(
-                ticId = cleanTic,
-                stage = "Deriving planetary radius (Rp) & invoking Gemini AI Astrophysicist...",
-                stageIndex = 5,
-                totalStages = 5
-            )
-            delay(400)
 
             scanResult.fold(
                 onSuccess = { detection ->
