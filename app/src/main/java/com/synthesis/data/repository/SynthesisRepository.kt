@@ -874,8 +874,29 @@ class SynthesisRepository @Inject constructor(
                 startTime = "'$startTime'",
                 stopTime = "'$endTime'"
             )
-            response.close()
-            Result.failure(IllegalStateException("JPL ephemeris numerical ingestion unavailable until response columns and time scale are validated"))
+            val raw = response.use { it.string() }
+            val vectors = com.synthesis.engine.validation.HorizonsVectorParser.parse(raw)
+            val digest = java.security.MessageDigest.getInstance("SHA-256")
+                .digest(raw.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it.toInt() and 255) }
+            // Observation.timestamp is Unix UTC, not TDB. Store retrieval time explicitly;
+            // the actual ephemeris epoch remains JD TDB in the source record.
+            val retrievedAt = System.currentTimeMillis()
+            Result.success(vectors.map { vector ->
+                Observation(
+                    id = "jpl:$digest:${vector.jdTdb}",
+                    investigationId = "",
+                    sourceId = "jpl",
+                    sourceName = "JPL Horizons Model Ephemeris",
+                    entity = "Target $target relative to $center",
+                    timestamp = retrievedAt,
+                    location = null,
+                    measurement = Measurement(value = vector.rangeAu, unit = "AU"),
+                    rawData = "jd_tdb:${vector.jdTdb},x_au:${vector.xAu},y_au:${vector.yAu},z_au:${vector.zAu}",
+                    normalizedData = "model_ephemeris;timestamp_kind:retrieval_utc;response_sha256:$digest;target:$target;center:$center",
+                    uncertainty = -1f,
+                    observationType = ObservationType.ASTRONOMICAL
+                )
+            })
         } catch (e: Exception) {
             Result.failure(e)
         }
