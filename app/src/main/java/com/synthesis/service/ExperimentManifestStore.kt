@@ -82,5 +82,20 @@ class ExperimentManifestStore(private val root: File, private val evidence: Fits
         require(sources.map { it.sector }.distinct().size == sources.size)
         return Manifest(tic, algorithm, created, sources)
     }
+    enum class ProvenanceComparison { DIFFERENT_TARGET, SHARED_PRODUCT, SHARED_SECTOR, DISTINCT_ARCHIVED_PRODUCTS }
+
+    /** Compares verified local inputs, not statistical independence or authenticity of upstream data. */
+    fun compareProvenance(firstId: String, secondId: String): ProvenanceComparison {
+        val first = readVerified(firstId)
+        val second = readVerified(secondId)
+        if (first.tic != second.tic) return ProvenanceComparison.DIFFERENT_TARGET
+        if (first.sources.any { a -> second.sources.any { b ->
+            a.sha256.equals(b.sha256, ignoreCase = true) || a.uri == b.uri
+        } }) return ProvenanceComparison.SHARED_PRODUCT
+        if (first.sources.any { a -> second.sources.any { b -> a.sector == b.sector } })
+            return ProvenanceComparison.SHARED_SECTOR
+        return ProvenanceComparison.DISTINCT_ARCHIVED_PRODUCTS
+    }
+
     data class Source(val uri: String, val sha256: String, val sector: Int, val points: Int)
 }
