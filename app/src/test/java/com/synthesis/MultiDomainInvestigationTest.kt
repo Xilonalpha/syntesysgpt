@@ -25,7 +25,7 @@ class MultiDomainInvestigationTest {
         val now = System.currentTimeMillis()
         val dayMs = TimeUnit.DAYS.toMillis(1)
 
-        // 1. GENERATE REAL-WORLD MULTI-DOMAIN DATASET
+        // 1. GENERATE SYNTHETIC MULTI-DOMAIN FIXTURE
         // Region: Pacific Ring of Fire (Subduction Zone / Cascadia-Alaska arc)
         val latCenter = 37.7749
         val lonCenter = -122.4194
@@ -136,7 +136,7 @@ class MultiDomainInvestigationTest {
             val causes = a.possibleCauses.map { it.description }
             println("     * Anomaly ID: ${a.id.take(35)}... | Observed: ${String.format("%.2f", a.observedValue)} (Expected: ${String.format("%.2f", a.expectedValue)}) | Score: ${String.format("%.2f", a.anomalyScore)} | Causes: $causes")
         }
-        assertTrue("Pipeline should identify at least one outlier anomaly", anomalies.isNotEmpty())
+        assertTrue("Insufficient homogeneous samples must not establish anomalies", anomalies.isEmpty())
         println()
 
         // 3. CROSS-DOMAIN CORRELATION ENGINE
@@ -149,7 +149,7 @@ class MultiDomainInvestigationTest {
             println("     * [${c.correlationType}] ${c.sourceA} <---> ${c.sourceB} (Strength: ${String.format("%.2f", c.strength)})")
             println("       Description: ${c.description}")
         }
-        assertTrue("Cross-domain correlations should be established between USGS, NASA POWER, and Open-Meteo", correlations.isNotEmpty())
+        assertTrue("Fewer than ten paired days must not establish correlations", correlations.isEmpty())
         println()
 
         // 4. GENERATIVE HYPOTHESIS ENGINE
@@ -188,9 +188,9 @@ class MultiDomainInvestigationTest {
             println("   Risks Analyzed: ${d.risks}")
         }
 
-        assertTrue("Multi-domain patterns should synthesize at least one discovery", discoveries.isNotEmpty())
+        assertTrue("Synthetic observations must not establish discoveries", discoveries.isEmpty())
         println("================================================================================")
-        println("   TEST PASSED: ALL 5 ENGINES EXECUTED END-TO-END WITH REAL STATISTICAL RIGOR")
+        println("   TEST PASSED: ALL 5 ENGINES EXECUTED END-TO-END WITH SYNTHETIC INPUT AND EVIDENCE GATES")
         println("================================================================================")
     }
 }
