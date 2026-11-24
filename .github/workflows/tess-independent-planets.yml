@@ -90,7 +90,9 @@ jobs:
           python scripts/download_tess.py --tic "$TIC" --output evidence/mast 2>&1 | tee evidence/download.log
           FITS=$(find evidence/mast -name '*_lc.fits' -type f)
           python scripts/prepare_tess.py "$FITS" evidence/observations.csv --tic "$TIC"
-          bash scripts/run_tess_validation.sh evidence/observations.csv "$EXPECTED" "$FITS" "$TIC" 2>&1 | tee evidence/result.log
+          mapfile -t STELLAR < <(python -c 'import json,math; r=json.load(open("evidence/catalog_reference.json")); assert r["status"]=="PASS"; row=r["catalog_rows"][0]; print("\n".join(str(v) if isinstance(v,(int,float)) and math.isfinite(v) and v>0 else "NaN" for v in (row.get("st_rad"),row.get("st_mass"),row.get("st_teff"))))')
+          [[ ${#STELLAR[@]} == 3 ]]
+          bash scripts/run_tess_validation.sh evidence/observations.csv "$EXPECTED" "$FITS" "$TIC" "${STELLAR[@]}" 2>&1 | tee evidence/result.log
       - name: Preserve evidence even on failure
         if: always()
         uses: actions/upload-artifact@v4
