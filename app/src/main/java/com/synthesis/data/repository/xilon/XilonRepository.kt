@@ -121,7 +121,11 @@ class XilonRepository @Inject constructor(
         ticId: String,
         synchronization: com.synthesis.service.MastDataSynchronizationService
     ): Result<com.synthesis.domain.model.exoplanet.MastSyncResult> {
-        val result = synchronization.syncLiveObservationData(query = ticId, mission = "TESS")
+        val cleanTic = ticId.trim().replace(Regex("^TIC\\s*", RegexOption.IGNORE_CASE), "")
+        if (!cleanTic.matches(Regex("[0-9]+"))) {
+            return Result.failure(IllegalArgumentException("Invalid TIC identifier"))
+        }
+        val result = synchronization.syncLiveObservationData(query = cleanTic, mission = "TESS")
         val observation = result.getOrElse { return Result.failure(it) }
         if (observation.experimentId.isNullOrBlank() || observation.products.isEmpty() ||
             observation.periodicDetection.periodogram.isEmpty()) {
