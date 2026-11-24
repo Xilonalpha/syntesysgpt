@@ -55,6 +55,7 @@ class PureTicCatalogRepository @Inject constructor(
                 val evidence = string("comparison_evidence")
                 val depth = number("depth_ppm")
                 require(depth < 1_000_000.0)
+                val snr = number("snr")
                 PureTicCandidate(
                     ticId = tic, name = "TIC $tic", sector = string("sector"),
                     apparentMag = j.get("tmag").asDouble.also { require(it.isFinite()) },
@@ -66,10 +67,13 @@ class PureTicCatalogRepository @Inject constructor(
                     whyNoToi = "Fara potrivire de perioada in tabelele interogate; noutate neconfirmata",
                     potentialPlanetaryType = "Semnal de tranzit nevalidat",
                     scientificNotes = "Experiment: $experiment; comparatie: $evidence; filtrare preliminara trecuta, validare independenta necesara",
-                    isLiveIngested = true, ingestionTimestamp = row.timestamp, snrSigma = number("snr")
+                    scientificPriority = "TRIAJ OBSERVATIONAL • SNR ${String.format(Locale.US, "%.1f", snr)} (necalibrat)",
+                    isLiveIngested = true, ingestionTimestamp = row.timestamp, snrSigma = snr
                 )
             } catch (_: Exception) { null }
-        }.distinctBy { it.ticId } }
+        }.sortedWith(compareByDescending<PureTicCandidate> { it.snrSigma }
+            .thenByDescending { it.ingestionTimestamp }.thenBy { it.ticId })
+            .distinctBy { it.ticId } }
         .stateIn(repositoryScope, SharingStarted.Eagerly, emptyList())
     fun getPureTicCatalog(): List<PureTicCandidate> = dynamicCatalogFlow.value
     fun getCandidateByTic(ticId: String): PureTicCandidate? =
