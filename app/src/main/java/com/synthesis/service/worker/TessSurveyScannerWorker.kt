@@ -91,6 +91,11 @@ class TessSurveyScannerWorker @AssistedInject constructor(
                         add("product_provenance", com.google.gson.Gson().toJsonTree(observation.products))
                         addProperty("depth_ppm", d.transitDepthPpm)
                         addProperty("snr", d.transitSnr)
+                                remove("residual_noise")
+                                remove("adjusted_snr")
+                                d.residualNoise?.let { add("residual_noise", com.google.gson.Gson().toJsonTree(it)) }
+                                d.blockAdjustedSnr?.let { addProperty("adjusted_snr", it) }
+                                addProperty("noise_calibration_status", "EXPLORATORY_UNCALIBRATED")
                         addProperty("catalog_status", comparison)
                         addProperty("vetting_status", when {
                             d.vetting.isSecondaryEclipseDetected -> "SECONDARY_ECLIPSE_FLAG"
@@ -143,6 +148,11 @@ class TessSurveyScannerWorker @AssistedInject constructor(
                                 addProperty("depth_ppm", extra.transitDepthPpm)
                                 addProperty("duration_hours", extra.transitDurationHours)
                                 addProperty("snr", extra.transitSnr)
+                                remove("residual_noise")
+                                remove("adjusted_snr")
+                                extra.residualNoise?.let { add("residual_noise", com.google.gson.Gson().toJsonTree(it)) }
+                                extra.blockAdjustedSnr?.let { addProperty("adjusted_snr", it) }
+                                addProperty("noise_calibration_status", "EXPLORATORY_UNCALIBRATED")
                                 addProperty("catalog_status", status)
                                 addProperty("comparison_evidence", signalId)
                                 addProperty("vetting_status", if (passed) "PRELIMINARY_SCREEN_PASSED" else "VETTING_FLAG")
