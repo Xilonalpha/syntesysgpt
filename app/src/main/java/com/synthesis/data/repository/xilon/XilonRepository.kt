@@ -195,6 +195,15 @@ class XilonRepository @Inject constructor(
         android.util.Log.w("XilonSurvey", "Independent analysis failed for TIC $tic", error)
     }
 
+    /** Exploratory follow-up on the same archived photometry; not independent confirmation. */
+    suspend fun searchAdditionalTransit(observation: com.synthesis.domain.model.exoplanet.MastSyncResult,
+        minPeriodDays: Double, maxPeriodDays: Double): com.synthesis.domain.model.exoplanet.PeriodicTransitDetectionResult? =
+        withContext(Dispatchers.Default) {
+            require(!observation.experimentId.isNullOrBlank() && observation.products.isNotEmpty())
+            com.synthesis.service.PeriodicTransitAnalysisEngine(com.synthesis.engine.exoplanet.BayesianUncertaintyEngine())
+                .searchAdditionalSignal(observation.dataPoints, observation.periodicDetection, minPeriodDays, maxPeriodDays)
+        }
+
     suspend fun runIndependentSearch(
         ticId: String,
         synchronization: com.synthesis.service.MastDataSynchronizationService
