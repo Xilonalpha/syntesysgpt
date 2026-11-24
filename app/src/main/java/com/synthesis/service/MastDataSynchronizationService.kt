@@ -144,13 +144,21 @@ class MastDataSynchronizationService @Inject constructor(
     suspend fun archiveTimingFollowUp(experimentId: String, referencePeriodDays: Double,
         maxChecks: Int = 3): String = withContext(Dispatchers.IO) {
         val report = followUpArchivedTiming(experimentId, referencePeriodDays, maxChecks)
+        persistTimingReport(report)
+    }
+
+    /** Persist an existing computed report without rerunning BLS. */
+    suspend fun persistTimingReport(report: TimingAuditReport): String = withContext(Dispatchers.IO) {
+        val experimentId = report.experimentId
+        require(report.referencePeriodDays.isFinite() && report.referencePeriodDays > 0)
+        require(report.checks.size <= 5 && report.matchingChecks in 0..report.checks.size)
         val evidence = FitsEvidenceStore(java.io.File(context.filesDir, "fits_evidence"))
         val manifests = ExperimentManifestStore(java.io.File(context.filesDir, "experiment_manifests"), evidence)
         val body = com.google.gson.JsonObject().apply {
             addProperty("schema", "synthesis.timing.audit.v1")
             addProperty("scientific_status", "CONDITIONAL_UNCONFIRMED")
             addProperty("created_ms", System.currentTimeMillis())
-            addProperty("max_checks", maxChecks)
+            addProperty("completed_checks", report.checks.size)
             add("audit", com.google.gson.Gson().toJsonTree(report))
         }
         ResearchReportStore(java.io.File(context.filesDir, "research_reports"), manifests)
