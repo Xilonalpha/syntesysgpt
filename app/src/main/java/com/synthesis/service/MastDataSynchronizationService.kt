@@ -124,7 +124,9 @@ class MastDataSynchronizationService @Inject constructor(
                     })
                 })
             }
-            val observations = mastPortalApi.invokeService(request.toString()).getAsJsonArray("data")
+            val observationResponse = mastPortalApi.invokeService(request.toString())
+            require(observationResponse.get("status")?.asString == "COMPLETE") { "MAST observation query incomplete" }
+            val observations = observationResponse.getAsJsonArray("data")
                 ?: error("MAST nu a returnat observații")
             val products = mutableSetOf<String>()
             require(observations.size() <= 20) { "Prea multe observații; selecție explicită necesară" }
@@ -136,7 +138,9 @@ class MastDataSynchronizationService @Inject constructor(
                     addProperty("format", "json")
                     add("params", com.google.gson.JsonObject().apply { addProperty("obsid", id) })
                 }
-                val rows = mastPortalApi.invokeService(productRequest.toString()).getAsJsonArray("data") ?: continue
+                val productResponse = mastPortalApi.invokeService(productRequest.toString())
+                require(productResponse.get("status")?.asString == "COMPLETE") { "MAST product query incomplete" }
+                val rows = productResponse.getAsJsonArray("data") ?: error("Missing MAST product rows")
                 for (product in rows) {
                     val uri = product.asJsonObject.get("dataURI")?.takeUnless { it.isJsonNull }?.asString ?: continue
                     if (uri.matches(Regex("mast:TESS/product/[A-Za-z0-9_-]+_lc\\.fits"))) products.add(uri)
@@ -193,6 +197,7 @@ class MastDataSynchronizationService @Inject constructor(
                 FitsEvidenceStore(java.io.File(context.filesDir, "fits_evidence"))
             ).save(tic, sources.map { ExperimentManifestStore.Source(it.uri, it.sha256, it.sector, it.pointCount) }, ExperimentReplay.ALGORITHM)
             val detection = periodicTransitAnalysisEngine.analyzeDataPoints(points)
+            require(detection.periodogram.isNotEmpty() && detection.bestPeriodDays.isFinite() && detection.bestPeriodDays > 0) { "BLS incomplete; no negative evidence can be inferred" }
             ExperimentResultStore(java.io.File(context.filesDir, "experiment_results"),
                 ExperimentManifestStore(java.io.File(context.filesDir, "experiment_manifests"), FitsEvidenceStore(java.io.File(context.filesDir, "fits_evidence"))))
                 .save(experimentId, ExperimentResultStore.metrics(detection))
