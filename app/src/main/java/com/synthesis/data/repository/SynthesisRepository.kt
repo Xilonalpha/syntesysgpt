@@ -147,7 +147,7 @@ class SynthesisRepository @Inject constructor(
                                 ),
                                 rawData = neo.toString(),
                                 normalizedData = "asteroid:${neo.name},h_mag:${neo.absoluteMagnitudeH},hazardous:${neo.isPotentiallyHazardous}",
-                                uncertainty = 0.05f,
+                                uncertainty = -1f, // Not supplied by source; never a measured uncertainty.
                                 observationType = ObservationType.ASTRONOMICAL
                             )
                         )
@@ -171,12 +171,12 @@ class SynthesisRepository @Inject constructor(
                     sourceId = "nasa",
                     sourceName = "NASA APOD",
                     entity = response.title ?: "APOD",
-                    timestamp = parseDate(response.date),
+                    timestamp = parseDate(response.date) ?: error("APOD date unavailable"),
                     location = null,
                     measurement = Measurement(value = 0.0, unit = "image"),
                     rawData = response.toString(),
                     normalizedData = "title:${response.title},media:${response.mediaType},url:${response.url}",
-                    uncertainty = 0.0f,
+                    uncertainty = -1f, // Not supplied by source; never a measured uncertainty.
                     observationType = ObservationType.ASTRONOMICAL
                 )
                 Result.success(observation)
@@ -236,7 +236,7 @@ class SynthesisRepository @Inject constructor(
                         ),
                         rawData = feature.toString(),
                         normalizedData = "location:${props?.place},mag:${props?.mag},depth:${coords?.get(2)},alert:${props?.alert},tsunami:${props?.tsunami}",
-                        uncertainty = 0.1f,
+                        uncertainty = -1f, // Not supplied by source; never a measured uncertainty.
                         observationType = ObservationType.GEOLOGICAL
                     )
                 } ?: emptyList()
@@ -270,7 +270,7 @@ class SynthesisRepository @Inject constructor(
                             ),
                             rawData = current.toString(),
                             normalizedData = "temp:${current.temperature2m},humidity:${current.relativeHumidity2m},pressure:${current.pressureMsl},wind:${current.windSpeed10m}",
-                            uncertainty = 0.5f,
+                            uncertainty = -1f, // Not supplied by source; never a measured uncertainty.
                             observationType = ObservationType.ATMOSPHERIC
                         )
                     )
@@ -299,7 +299,7 @@ class SynthesisRepository @Inject constructor(
                                 ),
                                 rawData = "time:${times.getOrNull(i)},temp:${temps.getOrNull(i)},pressure:${pressures.getOrNull(i)},wind:${winds.getOrNull(i)}",
                                 normalizedData = "hourly_temp:${temps.getOrNull(i)},pressure:${pressures.getOrNull(i)},wind:${winds.getOrNull(i)}",
-                                uncertainty = 1.0f,
+                                uncertainty = -1f, // Not supplied by source; never a measured uncertainty.
                                 observationType = ObservationType.ATMOSPHERIC
                             )
                         )
@@ -355,7 +355,7 @@ class SynthesisRepository @Inject constructor(
                                 measurement = Measurement(value = value, unit = unit),
                                 rawData = "$paramName:$dateStr=$value",
                                 normalizedData = "param:$paramName,date:$dateStr,value:$value,unit:$unit",
-                                uncertainty = 0.3f,
+                                uncertainty = -1f, // Not supplied by source; never a measured uncertainty.
                                 observationType = ObservationType.ATMOSPHERIC
                             )
                         )
@@ -396,7 +396,7 @@ class SynthesisRepository @Inject constructor(
                         ),
                         rawData = article.toString(),
                         normalizedData = "title:${article.title},authors:${article.authors?.joinToString { it.name ?: "" }},journal:${article.source},year:${article.pubdate}",
-                        uncertainty = 0.2f,
+                        uncertainty = -1f, // Not supplied by source; never a measured uncertainty.
                         observationType = ObservationType.HISTORICAL
                     )
                 }
@@ -432,7 +432,7 @@ class SynthesisRepository @Inject constructor(
                         ),
                         rawData = period.toString(),
                         normalizedData = "period:${period.name},temp:${period.temperature},forecast:${period.shortForecast}",
-                        uncertainty = 0.4f,
+                        uncertainty = -1f, // Not supplied by source; never a measured uncertainty.
                         observationType = ObservationType.ATMOSPHERIC
                     )
                 } ?: emptyList()
@@ -584,7 +584,7 @@ class SynthesisRepository @Inject constructor(
                             measurement = Measurement(value = 1.0, unit = "catalog_record_count"),
                             rawData = summary,
                             normalizedData = "title:$title,published:$publishedStr,query:$query",
-                            uncertainty = 0.05f,
+                            uncertainty = -1f, // Not supplied by source; never a measured uncertainty.
                             observationType = ObservationType.HISTORICAL
                         )
                     )
@@ -622,7 +622,7 @@ class SynthesisRepository @Inject constructor(
                             ),
                             rawData = "source_id:${star.sourceId},mag_g:$mag,teff:${star.teffGspphot},parallax:${star.parallax}",
                             normalizedData = "parallax:${star.parallax},pmra:${star.pmra},pmdec:${star.pmdec},teff:${star.teffGspphot},radius:${star.radiusGspphot}",
-                            uncertainty = 0.01f,
+                            uncertainty = -1f, // Not supplied by source; never a measured uncertainty.
                             observationType = ObservationType.ASTRONOMICAL
                         )
                     )
@@ -645,7 +645,7 @@ class SynthesisRepository @Inject constructor(
                     val title = record.metadata?.title ?: "LHC Dataset ($query)"
                     val experiment = record.metadata?.experiment?.name ?: "LHC"
                     val pubDate = record.metadata?.datePublished ?: record.created
-                    val ts = parseDate(pubDate)
+                    val ts = parseDate(pubDate) ?: return@forEachIndexed
                     observations.add(
                         Observation(
                             id = "cern_${record.id ?: index}",
@@ -658,7 +658,7 @@ class SynthesisRepository @Inject constructor(
                             measurement = Measurement(value = 1.0, unit = "catalog_record_count"),
                             rawData = "id:${record.id},doi:${record.metadata?.doi},experiment:$experiment",
                             normalizedData = "experiment:$experiment,keywords:${record.metadata?.keywords?.joinToString()}",
-                            uncertainty = 0.02f,
+                            uncertainty = -1f, // Not supplied by source; never a measured uncertainty.
                             observationType = ObservationType.HISTORICAL
                         )
                     )
@@ -694,7 +694,7 @@ class SynthesisRepository @Inject constructor(
                             measurement = Measurement(value = sizeMb, unit = "MB"),
                             rawData = "id:${product.id},name:${product.name},len:${product.contentLength}",
                             normalizedData = "bbox:$bbox,name:${product.name},origin:${product.originDate}",
-                            uncertainty = 0.05f,
+                            uncertainty = -1f, // Not supplied by source; never a measured uncertainty.
                             observationType = ObservationType.SATELLITE
                         )
                     )
@@ -714,7 +714,7 @@ class SynthesisRepository @Inject constructor(
 
             if (occurrences.isNotEmpty()) {
                 occurrences.forEachIndexed { index, occ ->
-                    val ts = parseDate(occ.eventDate)
+                    val ts = parseDate(occ.eventDate) ?: return@forEachIndexed
                     val loc = if (occ.decimalLatitude != null && occ.decimalLongitude != null) {
                         GeoLocation(latitude = occ.decimalLatitude, longitude = occ.decimalLongitude)
                     } else null
@@ -731,7 +731,7 @@ class SynthesisRepository @Inject constructor(
                             measurement = Measurement(value = 1.0, unit = "count"),
                             rawData = "key:${occ.key},basis:${occ.basisOfRecord},year:${occ.year}",
                             normalizedData = "taxon:${occ.scientificName},basis:${occ.basisOfRecord},year:${occ.year},lat:${occ.decimalLatitude},lon:${occ.decimalLongitude}",
-                            uncertainty = 0.1f,
+                            uncertainty = -1f, // Not supplied by source; never a measured uncertainty.
                             observationType = ObservationType.BIOLOGICAL
                         )
                     )
@@ -776,7 +776,7 @@ class SynthesisRepository @Inject constructor(
                             measurement = Measurement(value = cloud, unit = "%_cloud"),
                             rawData = "tile:${feature.id},cloudCover:$cloud,collection:${feature.properties?.collection}",
                             normalizedData = "bbox:$bbox,cloud:$cloud,datetime:${feature.properties?.datetime}",
-                            uncertainty = 0.02f,
+                            uncertainty = -1f, // Not supplied by source; never a measured uncertainty.
                             observationType = ObservationType.SATELLITE
                         )
                     )
@@ -796,7 +796,7 @@ class SynthesisRepository @Inject constructor(
 
             if (reports.isNotEmpty()) {
                 reports.forEachIndexed { index, report ->
-                    val ts = parseDate(report.isolate?.collectionDate)
+                    val ts = parseDate(report.isolate?.collectionDate) ?: return@forEachIndexed
                     val len = (report.length ?: report.nucleotide?.length ?: return@forEachIndexed).toDouble()
                     val name = report.isolate?.name ?: report.organism?.organismName ?: "Viral Genome $index"
 
@@ -812,7 +812,7 @@ class SynthesisRepository @Inject constructor(
                             measurement = Measurement(value = len, unit = "bp"),
                             rawData = "accession:${report.accession},length:$len,host:${report.isolate?.host}",
                             normalizedData = "accession:${report.accession},virus:${report.organism?.organismName},host:${report.isolate?.host},geo:${report.isolate?.geoLocation}",
-                            uncertainty = 0.01f,
+                            uncertainty = -1f, // Not supplied by source; never a measured uncertainty.
                             observationType = ObservationType.BIOLOGICAL
                         )
                     )
@@ -851,7 +851,7 @@ class SynthesisRepository @Inject constructor(
                                     measurement = Measurement(value = value, unit = "indicator:$indicator"),
                                     rawData = obj.toString(),
                                     normalizedData = "country:$country,indicator:$indicator,year:$dateStr,value:$value",
-                                    uncertainty = 0.05f,
+                                    uncertainty = -1f, // Not supplied by source; never a measured uncertainty.
                                     observationType = ObservationType.HISTORICAL
                                 )
                             )
@@ -882,35 +882,26 @@ class SynthesisRepository @Inject constructor(
     }
 
     // ==================== HELPER PARSERS ====================
-    private fun parseDate(dateStr: String?): Long {
-        if (dateStr == null) return System.currentTimeMillis()
-        return try {
-            SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(dateStr)?.time ?: System.currentTimeMillis()
-        } catch (e: Exception) {
-            System.currentTimeMillis()
+    private fun strictUtcDate(value: String?, pattern: String): Long? {
+        if (value.isNullOrBlank()) return null
+        val format = SimpleDateFormat(pattern, Locale.US).apply {
+            isLenient = false
+            timeZone = TimeZone.getTimeZone("UTC")
         }
+        val position = java.text.ParsePosition(0)
+        val date = format.parse(value, position) ?: return null
+        return date.time.takeIf { position.index == value.length }
     }
 
-    private fun parseIsoDate(dateStr: String?): Long? {
-        if (dateStr == null) return null
-        return try {
-            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).parse(dateStr)?.time
-        } catch (e: Exception) {
-            try {
-                SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).parse(dateStr)?.time
-            } catch (e2: Exception) {
-                null
-            }
-        }
-    }
+    private fun parseDate(dateStr: String?): Long? =
+        strictUtcDate(dateStr, "yyyy-MM-dd") ?: parseIsoDate(dateStr)
 
-    private fun parseNasaPowerDate(dateStr: String): Long? {
-        return try {
-            SimpleDateFormat("yyyyMMdd", Locale.US).parse(dateStr)?.time
-        } catch (e: Exception) {
-            null
-        }
-    }
+    private fun parseIsoDate(dateStr: String?): Long? =
+        strictUtcDate(dateStr, "yyyy-MM-dd'T'HH:mm:ssXXX")
+            ?: strictUtcDate(dateStr, "yyyy-MM-dd'T'HH:mm:ss.SSSXXX")
+
+    private fun parseNasaPowerDate(dateStr: String): Long? =
+        strictUtcDate(dateStr, "yyyyMMdd")
 
     private fun parsePubMedDate(dateStr: String?): Long? {
         if (dateStr == null) return null
