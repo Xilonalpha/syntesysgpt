@@ -315,8 +315,23 @@ class PeriodicTransitAnalysisEngine @Inject constructor(
         val oddDepth = if (oddTransits.isNotEmpty()) (baselineMean - oddTransits.map { it.relativeFlux }.average()).coerceAtLeast(0.0) else bestDepthFraction
         val evenDepth = if (evenTransits.isNotEmpty()) (baselineMean - evenTransits.map { it.relativeFlux }.average()).coerceAtLeast(0.0) else bestDepthFraction
 
-        val oddErr = if (oddTransits.isNotEmpty()) mad / sqrt(oddTransits.size.toDouble()) else mad
-        val evenErr = if (evenTransits.isNotEmpty()) mad / sqrt(evenTransits.size.toDouble()) else mad
+        // Preserve the white-noise floor, but account for scatter between transit events.
+        // Weighted cluster residuals correspond to the existing point-weighted depth.
+        fun parityError(points: List<PhaseFoldedPoint>): Double {
+            if (points.isEmpty()) return mad
+            val white = mad / sqrt(points.size.toDouble())
+            val groups = points.groupBy { it.epochIndex }.values
+            if (groups.size < 2) return mad
+            val mean = points.map { it.relativeFlux }.average()
+            val clusterVariance = groups.sumOf { group ->
+                val residual = group.sumOf { it.relativeFlux - mean }
+                residual * residual
+            } * groups.size.toDouble() / (groups.size - 1) /
+                points.size.toDouble().pow(2)
+            return max(white, sqrt(clusterVariance))
+        }
+        val oddErr = parityError(oddTransits)
+        val evenErr = parityError(evenTransits)
         val oddEvenDiffSigma = abs(oddDepth - evenDepth) / sqrt(oddErr * oddErr + evenErr * evenErr).coerceAtLeast(1e-6)
         val isOddEvenConsistent = oddTransits.isNotEmpty() && evenTransits.isNotEmpty() && oddEvenDiffSigma < 3.0 // Consistency alone cannot distinguish planets from binaries
 
