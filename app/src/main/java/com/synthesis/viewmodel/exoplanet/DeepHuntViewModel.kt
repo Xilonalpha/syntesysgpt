@@ -198,7 +198,8 @@ class DeepHuntViewModel @Inject constructor(
                             val extra = xilonRepository.searchAdditionalTransit(result, lower, upper)
                             primarySummary + if (extra != null) {
                                 val catalog = xilonRepository.compareCatalogPeriods(tic, extra.bestPeriodDays)
-                                "\nAdditional exploratory signal: P=${extra.bestPeriodDays} d; SNR=${extra.transitSnr}; $catalog; not independently validated or archived"
+                                val signalId = mastSynchronization.archiveAdditionalSignal(requireNotNull(result.experimentId), b, extra, lower, upper, catalog)
+                                "\nAdditional exploratory signal: P=${extra.bestPeriodDays} d; SNR=${extra.transitSnr}; $catalog; archive=$signalId; not independently validated"
                             } else "\nAdditional search: no accepted signal in $lower–$upper d (not a completeness claim)"
                         } else primarySummary
                     } catch (e: kotlinx.coroutines.CancellationException) {
