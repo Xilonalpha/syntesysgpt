@@ -12,30 +12,39 @@ jobs:
       matrix:
         include:
           - target: HD-189733-b
+            catalog_name: 'HD 189733 b'
             tic: '256364928'
             period: '2.21857567'
           - target: HD-219666-b
+            catalog_name: 'HD 219666 b'
             tic: '266980320'
             period: '6.03607'
           - target: LHS-1815-b
+            catalog_name: 'LHS 1815 b'
             tic: '260004324'
             period: '3.81433'
           - target: TOI-712-b
+            catalog_name: 'TOI-712 b'
             tic: '150151262'
             period: '9.531361'
           - target: TOI-776-b
+            catalog_name: 'TOI-776 b'
             tic: '306996324'
             period: '8.24661'
           - target: WASP-132-c
+            catalog_name: 'WASP-132 c'
             tic: '127530399'
             period: '1.011534'
           - target: TOI-824-b
+            catalog_name: 'TOI-824 b'
             tic: '193641523'
             period: '1.392978'
           - target: TOI-883-b
+            catalog_name: 'TOI-883 b'
             tic: '362249359'
             period: '1.0418777'
           - target: TOI-837-b
+            catalog_name: 'TOI-837 b'
             tic: '460205581'
             period: '8.3248762'
     steps:
@@ -63,6 +72,14 @@ jobs:
         run: |
           mkdir -p evidence
           python -c 'import os,json,math; t=int(os.environ["TIC"]); e=os.environ["EXPECTED"]; assert t>0 and (e=="control" or (math.isfinite(float(e)) and float(e)>0)); print(json.dumps({"tic":t,"expected_period":e,"commit":os.environ["GITHUB_SHA"]},indent=2))' > evidence/validation_inputs.json
+      - name: Verify independent catalog identity
+        env:
+          PLANET: ${{ matrix.catalog_name }}
+          TIC: ${{ matrix.tic }}
+          EXPECTED: ${{ matrix.period }}
+        run: |
+          mkdir -p evidence
+          python scripts/verify_planet_reference.py --name "$PLANET" --tic "$TIC" --period "$EXPECTED" --output evidence/catalog_reference.json
       - name: Download and analyze authentic observations
         env:
           TIC: '${{ matrix.tic }}'
