@@ -420,6 +420,15 @@ class PeriodicTransitAnalysisEngine @Inject constructor(
         val eventSignificance = eventMean / max(eventSe, mad / sqrt(inTransitCount.toDouble()))
         val eventPass = eventDepths.size >= 3 && eventSignificance >= 4.0 &&
             eventDepths.count { it > 0 } >= ceil(0.75 * eventDepths.size).toInt()
+        // Conditional circular-orbit diagnostic, not a universal eccentric-orbit veto.
+        // Depth estimates radius ratio only for an undiluted uniform stellar disk.
+        val aMeters = physicalParams.semiMajorAxisAu * AU_METERS
+        val chordRatio = hostStarRadiusSolar * R_SUN * (1.0 + sqrt(bestDepthFraction)) / aMeters
+        val maxTheoreticalDurationDays = if (hostStarMassSolar.isFinite() && hostStarMassSolar > 0 &&
+            hostStarRadiusSolar.isFinite() && hostStarRadiusSolar > 0 && chordRatio > 0 && chordRatio < 1)
+            bestPeriod / PI * asin(chordRatio) else Double.NaN
+        val durationRatio = bestDurationDays / maxTheoreticalDurationDays
+        val isDurationPhysical = durationRatio.isFinite() && durationRatio > 0 && durationRatio <= 1.0
         val isDetected = eventPass && !binaryWarning && observedEvents >= 3 && sde >= 6.0 && depthPpm >= 300.0 && transitSnr >= 7.0 && deltaChiSq > 0.0 && shapePass
 
         // Evaluate independent local maxima before giving up on a rejected global peak.
@@ -498,9 +507,7 @@ class PeriodicTransitAnalysisEngine @Inject constructor(
             }
         }
 
-        val maxTheoreticalDurationDays = (hostStarRadiusSolar * bestPeriod) / (Math.PI * physicalParams.semiMajorAxisAu * 215.0)
-        val durationRatio = bestDurationDays / maxTheoreticalDurationDays.coerceAtLeast(0.001)
-        val isDurationPhysical = durationRatio in 0.05..1.4
+
 
         val depthConsistencyNormalized = (if (oddEvenDiffSigma <= 1.0) {
             1.0
@@ -526,6 +533,9 @@ class PeriodicTransitAnalysisEngine @Inject constructor(
         )
 
         val status = buildString {
+            if (!durationRatio.isFinite()) append("Geometrie circulară neevaluată: parametri stelari lipsă sau incompatibili. ")
+            else if (!isDurationPhysical) append("Durată peste limita modelului circular central; necesită verificarea excentricității, diluției și parametrilor stelari. ")
+
             if (isDetected) {
                 append("★ SEMNAL PERIODIC PRELIMINAR [BLS SDE = ${String.format("%.2f", sde)}, SNR = ${String.format("%.1f", transitSnr)}]. ")
                 append("P = ${String.format("%.3f", bestPeriod)} d (${String.format("%.1f", bestPeriod * 24.0)} h), ")
