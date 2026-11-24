@@ -255,30 +255,33 @@ class InvestigationViewModel @Inject constructor(
             repository.saveObservations(allObservations)
             _logs.value = _logs.value + "Total observations: ${allObservations.size}"
 
+            // Conservative allowlist: catalog metadata and forecasts are not physical observations.
+            // Raw acquisition provenance is not yet verified even for these records.
+            val analysisObservations = allObservations.filter {
+                it.sourceId == "usgs" && it.sourceName == "USGS Earthquake Catalog" &&
+                    it.measurement.unit == "catalog_magnitude" && it.measurement.value.isFinite()
+            }
+            _logs.value = _logs.value + "Exploratory analysis inputs: ${analysisObservations.size}; other records retained as source records, not physical evidence."
+
             // Anomaly Detection
             _analysisState.value = AnalysisState.ANALYZING
             _progress.value = 0.89f
-            val detectedAnomalies = anomalyDetector.detectAnomalies(allObservations)
+            val detectedAnomalies = anomalyDetector.detectAnomalies(analysisObservations)
             detectedAnomalies.forEach { repository.saveAnomaly(it) }
             _logs.value = _logs.value + "Anomalies: ${detectedAnomalies.size}"
 
             // Correlation
             _analysisState.value = AnalysisState.CORRELATING
             _progress.value = 0.92f
-            val detectedCorrelations = correlationEngine.findCorrelations(allObservations)
+            val detectedCorrelations = correlationEngine.findCorrelations(analysisObservations)
             _correlations.value = detectedCorrelations
             _logs.value = _logs.value + "Correlations: ${detectedCorrelations.size}"
 
             // Hypotheses
             _progress.value = 0.95f
             _logs.value = _logs.value + "Synthesizing scientific hypotheses..."
-            val aiHypotheses = geminiService.generateScientificHypotheses(query, allObservations, detectedAnomalies)
-            val generatedHypotheses = if (aiHypotheses.isNotEmpty()) {
-                _logs.value = _logs.value + "Gemini AI generated ${aiHypotheses.size} physical hypotheses!"
-                aiHypotheses
-            } else {
-                hypothesisEngine.generateHypotheses(allObservations, detectedAnomalies, detectedCorrelations)
-            }
+            _logs.value = _logs.value + "AI hypothesis generation disabled pending verified input provenance."
+            val generatedHypotheses = hypothesisEngine.generateHypotheses(analysisObservations, detectedAnomalies, detectedCorrelations)
             generatedHypotheses.forEach { repository.saveHypothesis(it) }
             _logs.value = _logs.value + "Hypotheses: ${generatedHypotheses.size}"
 
