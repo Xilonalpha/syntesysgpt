@@ -548,18 +548,18 @@ class AdvancedDiscoveryViewModel @Inject constructor(
         sepArcsec: Double,
         radSun: Double
     ) {
+        _alertSuccessMessage.value = "Corecție indisponibilă: sunt necesare fluxurile măsurate în aceeași bandă și incertitudinile lor."
+    }
+
+    fun calculateMeasuredDilution(depth: Double, depthError: Double, target: Double,
+                                  targetError: Double, contaminant: Double, contaminantError: Double) {
         viewModelScope.launch {
-            val rescued = try { repository.runCustomDilutionDeblend(
-                candidateName = name,
-                ticId = ticId,
-                status = status,
-                depthPpm = depthPpm,
-                targetMag = targetMag,
-                neighborMag = neighborMag,
-                sepArcsec = sepArcsec,
-                radSun = radSun
-            ) } catch (e: IllegalArgumentException) { return@launch }
-            _dilutionRescues.value = listOf(rescued) + _dilutionRescues.value.filter { it.ticId != ticId }
+            try {
+                val result = repository.runMeasuredDilution(depth, depthError, target, targetError, contaminant, contaminantError)
+                _alertSuccessMessage.value = "Adâncime condițională: ${result.depthPpm} ± ${result.depthErrorPpm} ppm; sursa eclipsei neconfirmată."
+            } catch (e: IllegalArgumentException) {
+                _alertSuccessMessage.value = "Date fotometrice invalide."
+            }
         }
     }
 
