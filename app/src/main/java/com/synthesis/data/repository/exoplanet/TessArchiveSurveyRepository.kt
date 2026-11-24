@@ -26,12 +26,18 @@ class TessArchiveSurveyRepository @Inject constructor(
     private val synthesizedResearchRepository: SynthesizedResearchRepository
 ) {
 
+    data class SurveyBatch(val candidates: List<TessSurveyDiscovery>, val evaluated: Int)
+
+    suspend fun executeArchiveSurveyScan(criteria: TessSurveyCriteria): List<TessSurveyDiscovery> =
+        executeMeasuredSurveyBatch(criteria).candidates
+
     /**
      * Periodically queries TESS archives and runs photometric transit detection
      * on stars matching the screening criteria.
      */
-    suspend fun executeArchiveSurveyScan(criteria: TessSurveyCriteria): List<TessSurveyDiscovery> = withContext(Dispatchers.IO) {
+    suspend fun executeMeasuredSurveyBatch(criteria: TessSurveyCriteria): SurveyBatch = withContext(Dispatchers.IO) {
         val discoveries = mutableListOf<TessSurveyDiscovery>()
+        var evaluated = 0
         val candidateTics = mutableListOf<Pair<String, Double?>>() // (TIC ID, optional literature period)
 
         Log.d(TAG, "Starting TESS archive survey scan with criteria: maxTmag=${criteria.maxTmag}, minSnr=${criteria.minSnr}, minDepth=${criteria.minDepthPpm}")
@@ -72,6 +78,7 @@ class TessArchiveSurveyRepository @Inject constructor(
             try {
                 val detectionResult = xilonRepository.runAutonomousDetection(ticId, period)
                 detectionResult.getOrNull()?.let { detection ->
+                    evaluated++
                     val starMag = detection.star.tMag ?: return@let
                     val starRadius = detection.star.radiusSun ?: return@let
 
@@ -135,7 +142,7 @@ class TessArchiveSurveyRepository @Inject constructor(
             }
         }
 
-        discoveries
+        SurveyBatch(discoveries, evaluated)
     }
 
     companion object {
