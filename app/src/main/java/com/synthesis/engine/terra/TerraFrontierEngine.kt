@@ -17,15 +17,15 @@ class TerraFrontierEngine @Inject constructor() {
     }
 
     /**
-     * Computes the exact hydrostatic pressure at abyssal and hadal depths,
+     * Estimates absolute hydrostatic pressure at abyssal and hadal depths,
      * accounting for seawater adiabatic compressibility at extreme depths.
      */
     fun computeHadalPressure(depthMeters: Int): Double {
-        if (depthMeters <= 0) return 1.0
+        require(depthMeters in 0..12000)
         // Compressive density increase in hadal trenches (~1025 kg/m³ at surface to ~1070 kg/m³ at 11,000m)
-        val meanDensity = SEAWATER_DENSITY_SURFACE * (1.0 + (depthMeters / 1000.0) * 0.0042)
+        val meanDensity = SEAWATER_DENSITY_SURFACE * (1.0 + (depthMeters / 1000.0) * 0.0021)
         val pressurePascals = meanDensity * GRAVITY_ACCELERATION * depthMeters
-        return (pressurePascals / STANDARD_ATMOSPHERE_PA)
+        return 1.0 + pressurePascals / STANDARD_ATMOSPHERE_PA
     }
 
     /**
@@ -33,7 +33,8 @@ class TerraFrontierEngine @Inject constructor() {
      * and compares it against all surface oceans combined.
      */
     fun computeMantleHydrationBudget(waterWeightPercent: Double = 1.5): MantleWaterHydrationState {
-        val clampedPercent = waterWeightPercent.coerceIn(0.1, 3.0)
+        require(waterWeightPercent.isFinite() && waterWeightPercent in 0.0..3.0)
+        val clampedPercent = waterWeightPercent
         // Transition zone spans 410 to 660 km depth
         val estimatedWaterMassKg = MANTLE_TRANSITION_ZONE_MASS_KG * (clampedPercent / 100.0)
         val ratioToSurfaceOceans = estimatedWaterMassKg / SURFACE_OCEANS_MASS_KG
@@ -69,12 +70,12 @@ class TerraFrontierEngine @Inject constructor() {
         }
 
         return GeomagneticAnomalousState(
-            regionName = "Anomalia Atlanticului de Sud (Bazinul Brazilia-Africa)",
+            regionName = "Simulare ilustrativă SAA (nu observație ESA)",
             currentIntensityMicroTesla = (currentIntensity * 10.0).roundToInt() / 10.0,
             intensityDecayRatePerDecadePercent = 7.5,
             northMagneticDriftKmPerYear = (driftKmPerYear * 10.0).roundToInt() / 10.0,
-            lowEarthOrbitRadiationRisk = riskLevel,
-            isSplittingIntoDoubleCore = true // Confirmed by ESA Swarm constellation: western and eastern sub-lobes
+            lowEarthOrbitRadiationRisk = "Nevalidat: simularea nu estimează doza de radiație",
+            isSplittingIntoDoubleCore = false // Not assessed by this illustrative model
         )
     }
 
