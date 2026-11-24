@@ -47,6 +47,7 @@ class AnomalyDetector @Inject constructor(
             records.forEachIndexed { index, record ->
                 if (!seenObservations.add(record.id)) return@forEachIndexed
                 val zScore = if (stdDev > 0) abs(record.measurement - mean) / stdDev else 0.0
+                if (!zScore.isFinite()) return@forEachIndexed
                 val score = (zScore / 3.0).coerceIn(0.0, 1.0).toFloat()
 
                 if (zScore >= 3.0) {
@@ -58,7 +59,7 @@ class AnomalyDetector @Inject constructor(
 
                     anomalies.add(
                         Anomaly(
-                            id = "anomaly_${type}_${unit}_${index}_${System.currentTimeMillis()}",
+                            id = java.util.UUID.nameUUIDFromBytes(("anomaly:" + observations.first().investigationId + ":" + record.id).toByteArray(Charsets.UTF_8)).toString(),
                             investigationId = observations.firstOrNull()?.investigationId ?: "",
                             observationId = record.id,
                             expectedValue = mean,
