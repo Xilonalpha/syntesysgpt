@@ -114,6 +114,22 @@ class XilonRepository @Inject constructor(
 
     fun getCuratedTargets(): List<TargetStarCandidate> = emptyList()
 
+    /** Independent chronological FITS search; catalog/TCE ephemerides are not inputs.
+     * Results remain preliminary and must not be classified as novel planets.
+     */
+    suspend fun runIndependentSearch(
+        ticId: String,
+        synchronization: com.synthesis.service.MastDataSynchronizationService
+    ): Result<com.synthesis.domain.model.exoplanet.MastSyncResult> {
+        val result = synchronization.syncLiveObservationData(query = ticId, mission = "TESS")
+        val observation = result.getOrElse { return Result.failure(it) }
+        if (observation.experimentId.isNullOrBlank() || observation.products.isEmpty() ||
+            observation.periodicDetection.periodogram.isEmpty()) {
+            return Result.failure(IllegalStateException("Independent search incomplete or evidence missing"))
+        }
+        return Result.success(observation)
+    }
+
     suspend fun runAutonomousDetection(
         ticId: String,
         targetPeriodDays: Double? = null
