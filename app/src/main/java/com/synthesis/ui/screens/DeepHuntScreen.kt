@@ -174,6 +174,10 @@ fun DeepHuntScreen(
                             enabled = !archiveLoading && archiveExperiment.isNotBlank()) {
                             Text("Read verified results")
                         }
+                        Button(onClick = { viewModel.replayArchivedExperiment(archiveExperiment) },
+                            enabled = !archiveLoading && !independentRunning && archiveExperiment.isNotBlank()) {
+                            Text("Replay verified FITS offline")
+                        }
                         Text(archiveStatus, color = TextSecondary)
                     }
                 }
