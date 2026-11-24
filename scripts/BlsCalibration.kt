@@ -29,6 +29,7 @@ fun main(args: Array<String>) {
             }
             val r = engine.runBlsPipeline(times.map { 2460000.0 + it }, flux,
                 List(times.size) { 0.0005 }, 0.5, 10.0)
+            require(r.periodogram.isNotEmpty() && r.bestPeriodDays.isFinite() && r.bestPeriodDays > 0) { "Incomplete BLS scan at trial $trial; cannot count as negative evidence" }
             val hit = depth > 0 && r.isDetected && abs(r.bestPeriodDays / period - 1) < 0.02
             if (r.isDetected) accepted++
             if (hit) recovered++
