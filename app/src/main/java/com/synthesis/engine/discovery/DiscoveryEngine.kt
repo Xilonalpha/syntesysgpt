@@ -29,11 +29,13 @@ class DiscoveryEngine @Inject constructor(
         withContext(Dispatchers.Default) {
             require(investigationId.isNotBlank())
             require(observations.all { it.investigationId == investigationId })
+            require(observations.all { it.id.isNotBlank() })
+            require(observations.map { it.id }.distinct().size == observations.size)
             val byId = observations.associateBy { it.id }
             patternDetector.detectHiddenPatterns(observations).map { pattern ->
                 val ids = pattern.involvedObservations.distinct().sorted()
                 require(ids.isNotEmpty() && ids.all { it in byId })
-                val key = investigationId + ":" + pattern.patternType.name + ":" + ids.joinToString(",")
+                val key = (listOf(investigationId, pattern.patternType.name) + ids).joinToString("") { "${it.length}:$it" }
                 ResearchCandidate(
                     investigationId,
                     java.util.UUID.nameUUIDFromBytes(key.toByteArray(Charsets.UTF_8)).toString(),
