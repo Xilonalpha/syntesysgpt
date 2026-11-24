@@ -16,8 +16,13 @@ fun main(args: Array<String>) {
  val validPeriod=r.bestPeriodDays.isFinite() && r.bestPeriodDays>0
  val error=if(expected!=null && validPeriod) abs(r.bestPeriodDays/expected-1) else null
  println("relative_period_error=$error")
+ println("sde=${r.signalDetectionEfficiencySde}")
+ println("odd_depth_ppm=${r.vetting.oddTransitDepthPpm} even_depth_ppm=${r.vetting.evenTransitDepthPpm} odd_even_sigma=${r.vetting.oddEvenSigmaDiff} odd_even_consistent=${r.vetting.isOddEvenConsistent}")
+ println("secondary_depth_ppm=${r.vetting.secondaryEclipseDepthPpm} secondary_sigma=${r.vetting.secondaryEclipseSigma} secondary_detected=${r.vetting.isSecondaryEclipseDetected}")
+ println("period_agreement=${if(control) "NOT_APPLICABLE" else if(error!=null && error<0.02) "PASS" else "FAIL"}")
+ println("candidate_accepted=${r.isDetected}")
  val passed=if(control) !r.isDetected else r.isDetected && error!=null && error<0.02
  println("benchmark_status=${if(passed) "PASS" else "FAIL"}")
  println("planet_confirmation=NOT_ASSESSED global_false_alarm_probability=NOT_CALIBRATED")
- check(passed) { if(control) "Control produced a detection; review required" else "Period recovery failed" }
+ check(passed) { if(control) "Control produced a detection; review required" else "Positive-control benchmark failed: inspect period agreement and candidate vetting separately" }
 }
