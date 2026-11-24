@@ -131,11 +131,10 @@ class AstrometryEngine @Inject constructor() {
         var normalizedRa = raDeg % 360.0
         if (normalizedRa < 0.0) normalizedRa += 360.0
 
-        val totalHours = normalizedRa / 15.0
-        val hh = totalHours.toInt()
-        val totalMinutes = (totalHours - hh) * 60.0
-        val mm = totalMinutes.toInt()
-        val ss = (totalMinutes - mm) * 60.0
+        val ticks = (normalizedRa / 15.0 * 360000.0).roundToLong() % 8640000L
+        val hh = (ticks / 360000).toInt()
+        val mm = ((ticks / 6000) % 60).toInt()
+        val ss = (ticks % 6000) / 100.0
 
         return String.format(Locale.US, "%02dh %02dm %05.2fs", hh, mm, ss)
     }
@@ -146,11 +145,10 @@ class AstrometryEngine @Inject constructor() {
     fun formatSexagesimalDec(decDeg: Double): String {
         require(decDeg.isFinite() && decDeg in -90.0..90.0)
         val sign = if (decDeg >= 0) "+" else "-"
-        val absDec = abs(decDeg)
-        val dd = absDec.toInt()
-        val totalArcmin = (absDec - dd) * 60.0
-        val mm = totalArcmin.toInt()
-        val ss = (totalArcmin - mm) * 60.0
+        val ticks = (abs(decDeg) * 36000.0).roundToLong()
+        val dd = (ticks / 36000).toInt()
+        val mm = ((ticks / 600) % 60).toInt()
+        val ss = (ticks % 600) / 10.0
 
         return String.format(Locale.US, "%s%02d° %02d' %04.1f\"", sign, dd, mm, ss)
     }
