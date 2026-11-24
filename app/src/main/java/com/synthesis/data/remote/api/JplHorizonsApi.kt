@@ -19,6 +19,10 @@ interface JplHorizonsApi {
         @Query("START_TIME") startTime: String,
         @Query("STOP_TIME") stopTime: String,
         @Query("STEP_SIZE") stepSize: String = "1d",
-        @Query("QUANTITIES") quantities: String = "1,9,20,23" // range, light-time, velocity, range-rate
+        @Query("QUANTITIES") quantities: String = "1,9,20,23",
+        @Query("CSV_FORMAT") csvFormat: String = "YES",
+        @Query("OUT_UNITS") outUnits: String = "AU-D",
+        @Query("VEC_TABLE") vectorTable: String = "2",
+        @Query("VEC_CORR") vectorCorrection: String = "NONE"
     ): ResponseBody
 }
