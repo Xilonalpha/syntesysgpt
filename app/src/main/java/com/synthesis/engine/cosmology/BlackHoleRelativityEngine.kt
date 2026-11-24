@@ -9,6 +9,19 @@ import kotlin.math.*
 @Singleton
 class BlackHoleRelativityEngine @Inject constructor() {
 
+    /** Kerr horizon geometry, uncharged isolated black hole. */
+    data class HorizonGeometry(val outerRadiusM: Double, val innerRadiusM: Double, val areaM2: Double)
+    fun horizonGeometry(massSolar: Double, spin: Double): HorizonGeometry {
+        require(massSolar.isFinite() && massSolar > 0 && spin.isFinite() && spin in -1.0..1.0)
+        val rg = G * (massSolar * SOLAR_MASS_KG) / (C*C)
+        val s = sqrt((1-spin)*(1+spin))
+        val outer = rg*(1+s)
+        val inner = rg*spin*spin/(1+s)
+        val area = 8*PI*rg*outer
+        require(outer.isFinite() && outer > 0 && inner.isFinite() && area.isFinite() && area > 0)
+        return HorizonGeometry(outer,inner,area)
+    }
+
     companion object {
         const val G = 6.67430e-11
         const val C = 2.99792458e8
