@@ -183,8 +183,13 @@ class DeepHuntViewModel @Inject constructor(
                     val line = try {
                         val result = xilonRepository.runIndependentSearch(tic, mastSynchronization).getOrThrow()
                         val b = result.periodicDetection
+                        val plan = com.synthesis.engine.discovery.PlanetResearchPlanner.plan(
+                            com.synthesis.engine.discovery.PlanetResearchPlanner.Input(
+                                result.products.size, result.products.map { it.sector }.distinct().size, b.isDetected,
+                                false, false, !b.vetting.isSecondaryEclipseDetected && b.vetting.isOddEvenConsistent &&
+                                b.vetting.isDurationPhysical, false, false)).joinToString { it.name }
                         val primarySummary = "TIC $tic: " + (if (b.isDetected) "Preliminary P=${b.bestPeriodDays} d; SNR=${b.transitSnr}" else "No accepted signal") +
-                            "; experiment=${result.experimentId}; " + (if (b.isDetected) {
+                            "; plan=$plan; experiment=${result.experimentId}; " + (if (b.isDetected) {
                                 val status = xilonRepository.compareCatalogPeriods(tic, b.bestPeriodDays)
                                 val comparisonId = mastSynchronization.archiveCatalogComparison(
                                     requireNotNull(result.experimentId), b.bestPeriodDays, status)
@@ -195,14 +200,7 @@ class DeepHuntViewModel @Inject constructor(
                                     val audit = mastSynchronization.followUpArchivedTiming(
                                         requireNotNull(result.experimentId), b.bestPeriodDays, 2)
                                     val reportHash = mastSynchronization.persistTimingReport(audit)
-                                    val check = mastSynchronization.validateArchivedSectors(
-                                        requireNotNull(result.experimentId), sectors.first(), sectors.last())
-                                    val samePeriod = kotlin.math.abs(check.ephemeris.periodDays - b.bestPeriodDays) /
-                                        b.bestPeriodDays <= 0.01
-                                    "; report=$reportHash; follow-up ${audit.matchingChecks}/${audit.checks.size}: ${audit.status}; sectors ${check.trainingSector}/${check.heldOutSector}: " +
-                                        (if (check.allCompatible && samePeriod) "conditional timing compatibility"
-                                        else "compatibility not established") +
-                                        "; ${check.comparisons.size} measured events; not confirmation"
+                                    "; report=$reportHash; follow-up ${audit.matchingChecks}/${audit.checks.size}: ${audit.status}; not confirmation"
                                 } catch (e: kotlinx.coroutines.CancellationException) {
                                     throw e
                                 } catch (e: Exception) {
