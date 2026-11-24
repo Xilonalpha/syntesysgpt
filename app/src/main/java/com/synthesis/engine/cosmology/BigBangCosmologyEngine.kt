@@ -130,12 +130,10 @@ class BigBangCosmologyEngine @Inject constructor() {
                 x / sqrt(e2) * step
             }
         }
-        val ageGyr = cosmicAge(1.0) else {
-            (2.0 / 3.0) * hubbleTimeGyr
-        }
+        val ageGyr = cosmicAge(1.0)
 
         // Sound horizon at drag epoch r_s ~ 147.2 Mpc * (omega_m / 0.315)^(-0.25)
-        val soundHorizonMpc = 147.2 * (omegaM / 0.315).pow(-0.25)
+        val soundHorizonMpc = if (omegaM > 0) 147.2 * (omegaM / 0.315).pow(-0.25) else Double.NaN
 
         // Hubble Tension delta (Planck vs SH0ES)
         val hubbleTension = abs(SHOES_H0 - h0)
@@ -205,7 +203,7 @@ class BigBangCosmologyEngine @Inject constructor() {
             radiationDensityOmegaR = omegaRadiation,
             curvatureOmegaK = (omegaK * 1000.0).roundToLong() / 1000.0,
             cosmicAgeGyr = (ageGyr * 100.0).roundToLong() / 100.0,
-            soundHorizonMpc = (soundHorizonMpc * 10.0).roundToLong() / 10.0,
+            soundHorizonMpc = if (soundHorizonMpc.isFinite()) (soundHorizonMpc * 10.0).roundToLong() / 10.0 else Double.NaN,
             cmbTemperatureK = 2.7255,
             decelerationParameterQ0 = (q0 * 100.0).roundToLong() / 100.0,
             hubbleTensionDeltaKmS = (hubbleTension * 10.0).roundToLong() / 10.0,
