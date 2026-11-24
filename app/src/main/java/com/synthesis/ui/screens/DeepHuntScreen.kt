@@ -37,6 +37,8 @@ fun DeepHuntScreen(
     val independentRunning by viewModel.independentRunning.collectAsState()
     val independentStatus by viewModel.independentStatus.collectAsState()
     var independentTargets by remember { mutableStateOf("") }
+    var observedSector by remember { mutableStateOf("") }
+    var observedPage by remember { mutableStateOf("1") }
     val monoTransits by viewModel.monoTransits.collectAsState()
     val ttvSystems by viewModel.ttvSystems.collectAsState()
     val atmosphericScores by viewModel.atmosphericScores.collectAsState()
@@ -141,6 +143,16 @@ fun DeepHuntScreen(
                             enabled = !independentRunning && independentTargets.isNotBlank()) {
                             Text(if (independentRunning) "Analyzing..." else "Search targets")
                         }
+                        OutlinedTextField(value = observedSector, onValueChange = { observedSector = it },
+                            label = { Text("TESS observation sector") }, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(value = observedPage, onValueChange = { observedPage = it },
+                            label = { Text("MAST page") }, modifier = Modifier.fillMaxWidth())
+                        Button(onClick = { viewModel.searchObservedSector(observedSector, observedPage) },
+                            enabled = !independentRunning && observedSector.toIntOrNull()?.let { it > 0 } == true &&
+                                observedPage.toIntOrNull()?.let { it in 1..10000 } == true) {
+                            Text("Select and scan observed targets")
+                        }
+                        Text("Up to five targets per page; not a complete sector survey.", color = TextSecondary)
                         Text(independentStatus, color = TextSecondary)
                     }
                 }
