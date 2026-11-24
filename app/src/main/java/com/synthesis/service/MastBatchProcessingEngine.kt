@@ -290,6 +290,8 @@ class MastBatchProcessingEngine @Inject constructor(
             // Vetting & Classification
             val cfg = _config.value
             val bls = syncResult.periodicDetection
+            require(!syncResult.experimentId.isNullOrBlank() && syncResult.products.isNotEmpty() &&
+                    bls.periodogram.isNotEmpty()) { "Incomplete BLS scan or missing experiment evidence" }
             val bestTemplate = syncResult.templateScores.firstOrNull()
 
             val snr = bls.transitSnr
