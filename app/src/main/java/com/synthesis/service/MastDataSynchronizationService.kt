@@ -111,6 +111,53 @@ class MastDataSynchronizationService @Inject constructor(
             id
         }
 
+    /** Exploratory masked-search result bound to verified source files; not a replay certificate. */
+    suspend fun archiveAdditionalSignal(experimentId: String,
+        primary: com.synthesis.domain.model.exoplanet.PeriodicTransitDetectionResult,
+        secondary: com.synthesis.domain.model.exoplanet.PeriodicTransitDetectionResult,
+        lower: Double, upper: Double, catalogStatus: String): String = withContext(Dispatchers.IO) {
+        require(primary.isDetected && secondary.isDetected)
+        require(lower.isFinite() && upper.isFinite() && lower > 0 && upper > lower)
+        require(listOf(primary, secondary).all { r ->
+            listOf(r.bestPeriodDays, r.epochBjd, r.transitDurationHours, r.transitDepthPpm, r.transitSnr).all { it.isFinite() } &&
+                r.bestPeriodDays > 0 && r.transitDurationHours > 0 && r.transitDepthPpm > 0
+        })
+        val comparison = archiveCatalogComparison(experimentId, secondary.bestPeriodDays, catalogStatus)
+        val evidence = FitsEvidenceStore(java.io.File(context.filesDir, "fits_evidence"))
+        val manifest = ExperimentManifestStore(java.io.File(context.filesDir, "experiment_manifests"), evidence).readVerified(experimentId)
+        val root = java.io.File(context.filesDir, "additional_signals")
+        check(root.isDirectory || root.mkdirs())
+        val id = java.util.UUID.randomUUID().toString()
+        val body = buildString {
+            appendLine("schema=1")
+            appendLine("experiment=$experimentId")
+            appendLine("manifest=" + FitsEvidenceStore.sha256(manifest.toString().toByteArray(Charsets.UTF_8)))
+            appendLine("comparison=$comparison")
+            appendLine("algorithm=masked_bls_v1")
+            appendLine("mask_half_duration_multiplier=0.75")
+            appendLine("harmonic_tolerance=0.02")
+            appendLine("min_period_days=$lower")
+            appendLine("max_period_days=$upper")
+            for ((label,r) in listOf("primary" to primary, "secondary" to secondary)) {
+                appendLine("${label}_period_days=${r.bestPeriodDays}")
+                appendLine("${label}_epoch_bjd=${r.epochBjd}")
+                appendLine("${label}_duration_hours=${r.transitDurationHours}")
+                appendLine("${label}_depth_ppm=${r.transitDepthPpm}")
+                appendLine("${label}_snr=${r.transitSnr}")
+            }
+            appendLine("status=EXPLORATORY_UNVERIFIED")
+        }
+        val temp = java.io.File.createTempFile("signal-", ".tmp", root)
+        try {
+            temp.outputStream().use {
+                it.write((body + FitsEvidenceStore.sha256(body.toByteArray(Charsets.UTF_8)) + "\n").toByteArray(Charsets.UTF_8))
+                it.fd.sync()
+            }
+            check(temp.renameTo(java.io.File(root, "$id.signal")))
+        } finally { temp.delete() }
+        id
+    }
+
     suspend fun readArchivedMetrics(experimentId: String, runId: String): ExperimentResultStore.Metrics =
         withContext(Dispatchers.IO) {
             val evidence = FitsEvidenceStore(java.io.File(context.filesDir, "fits_evidence"))
