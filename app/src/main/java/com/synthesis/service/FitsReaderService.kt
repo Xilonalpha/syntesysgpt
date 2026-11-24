@@ -130,7 +130,7 @@ data class FitsHeader(
     val bitPix: Int = 16,
     val nAxis: Int = 2,
     val dimensions: IntArray = intArrayOf(0, 0),
-    val bZero: Double = 32768.0,
+    val bZero: Double = 0.0,
     val bScale: Double = 1.0,
     val blank: Long? = null,
     val dateObs: String? = null,
@@ -249,7 +249,7 @@ class FitsRawPixelBuffer(
                     if (buffer.remaining() < 2) break
                     val raw = buffer.short.toDouble()
                     // If standard FITS unsigned 16-bit, BZERO is typically 32768.0
-                    pixels[i] = ((raw + bZero) * bScale).toFloat()
+                    pixels[i] = ((raw * bScale) + bZero).toFloat()
                 }
             }
             32 -> { // Signed 32-bit integer
@@ -901,7 +901,7 @@ class FitsReaderService @Inject constructor() {
                 val card = if (key == "CONTINUE" && cards.isNotEmpty()) {
                     val prevCard = cards.last()
                     val continuedStr = rawValue.removeSurrounding("'", "'")
-                    val updatedVal = prevCard.rawValue.trimEnd('\'', '&') + continuedStr
+                    val updatedVal = prevCard.rawValue.removeSurrounding("'", "'").removeSuffix("&") + continuedStr
                     val updatedCard = prevCard.copy(rawValue = "'$updatedVal'")
                     cards[cards.size - 1] = updatedCard
                     cardMap[prevCard.key] = updatedCard
