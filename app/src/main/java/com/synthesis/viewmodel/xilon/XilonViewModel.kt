@@ -343,6 +343,26 @@ class XilonViewModel @Inject constructor(
                             "; exploratory, FAP uncalibrated"
                     } ?: " | Residual noise diagnostic unavailable") +
                     " | Products: ${result.products.size}; independent confirmation required"
+                val sectors = result.products.map { it.sector }.distinct().sorted()
+                if (bls.isDetected && sectors.size >= 2) {
+                    _independentStatus.value += " | Checking held-out sector..."
+                    try {
+                        val check = mastSynchronization.validateArchivedSectors(
+                            requireNotNull(result.experimentId), sectors.first(), sectors.last())
+                        val samePeriod = kotlin.math.abs(check.ephemeris.periodDays - bls.bestPeriodDays) /
+                            bls.bestPeriodDays <= 0.01
+                        _independentStatus.value += " | Sectors ${check.trainingSector}/${check.heldOutSector}: " +
+                            (if (check.allCompatible && samePeriod) "conditional timing compatibility"
+                            else "timing or period compatibility not established") +
+                            "; ${check.comparisons.size} measured events; not a planet confirmation"
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        _independentStatus.value += " | Multi-sector assessment incomplete: ${e.message ?: "insufficient evidence"}"
+                    }
+                } else {
+                    _independentStatus.value += " | Multi-sector assessment unavailable"
+                }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {
