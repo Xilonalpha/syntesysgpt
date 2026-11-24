@@ -76,6 +76,13 @@ class TessSurveyScannerWorker @AssistedInject constructor(
                         addProperty("snr", d.transitSnr)
                         addProperty("catalog_status", comparison)
                         addProperty("comparison_evidence", comparisonEvidence)
+                        addProperty("sector", observation.target.sectorOrQuarter)
+                        addProperty("duration_hours", d.transitDurationHours)
+                        star.tMag?.takeIf { it.isFinite() }?.let { addProperty("tmag", it) }
+                        star.radiusSun?.takeIf { it.isFinite() }?.let { addProperty("stellar_radius", it) }
+                        star.massSun?.takeIf { it.isFinite() }?.let { addProperty("stellar_mass", it) }
+                        star.teff?.takeIf { it.isFinite() }?.let { addProperty("stellar_teff", it) }
+                        star.distancePc?.takeIf { it.isFinite() }?.let { addProperty("distance_pc", it) }
                     }
                     researchRepository.saveResearch(com.synthesis.data.local.entity.SynthesizedResearchEntity(
                         id = "independent-tess:$experiment",
