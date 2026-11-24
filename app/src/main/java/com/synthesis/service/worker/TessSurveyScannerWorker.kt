@@ -104,8 +104,10 @@ class TessSurveyScannerWorker @AssistedInject constructor(
                         catch (e: kotlinx.coroutines.CancellationException) { throw e }
                         catch (e: Exception) { null }
                     } else null
+                    val timingReportHash = timingAudit?.let { synchronization.persistTimingReport(it) }
                     val payload = com.google.gson.JsonObject().apply {
                         timingAudit?.let { add("timing_audit", com.google.gson.Gson().toJsonTree(it)) }
+                        timingReportHash?.let { addProperty("timing_report_sha256", it) }
                         addProperty("experiment_id", experiment)
                         addProperty("tic", tic)
                         addProperty("period_days", d.bestPeriodDays)
@@ -169,6 +171,7 @@ class TessSurveyScannerWorker @AssistedInject constructor(
                                 addProperty("additional_signal_id", signalId)
                                 remove("phase_evidence")
                             remove("timing_audit")
+                            remove("timing_report_sha256")
                                 addProperty("phase_validation", "NOT_ASSESSED_ADDITIONAL_SIGNAL")
                                 addProperty("period_days", extra.bestPeriodDays)
                                 addProperty("epoch_bjd", extra.epochBjd)
