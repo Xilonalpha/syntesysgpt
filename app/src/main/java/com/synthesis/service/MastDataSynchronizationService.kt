@@ -140,6 +140,23 @@ class MastDataSynchronizationService @Inject constructor(
         return report.copy(reportHash = hash)
     }
 
+    /** Archive a freshly computed conditional timing report with its verified inputs. */
+    suspend fun archiveTimingFollowUp(experimentId: String, referencePeriodDays: Double,
+        maxChecks: Int = 3): String = withContext(Dispatchers.IO) {
+        val report = followUpArchivedTiming(experimentId, referencePeriodDays, maxChecks)
+        val evidence = FitsEvidenceStore(java.io.File(context.filesDir, "fits_evidence"))
+        val manifests = ExperimentManifestStore(java.io.File(context.filesDir, "experiment_manifests"), evidence)
+        val body = com.google.gson.JsonObject().apply {
+            addProperty("schema", "synthesis.timing.audit.v1")
+            addProperty("scientific_status", "CONDITIONAL_UNCONFIRMED")
+            addProperty("created_ms", System.currentTimeMillis())
+            addProperty("max_checks", maxChecks)
+            add("audit", com.google.gson.Gson().toJsonTree(report))
+        }
+        ResearchReportStore(java.io.File(context.filesDir, "research_reports"), manifests)
+            .save(experimentId, body.toString())
+    }
+
     /** Offline replay; no network requests and no claim of scientific confirmation. */
     suspend fun replayExperiment(id: String) = withContext(Dispatchers.IO) {
         val evidence = FitsEvidenceStore(java.io.File(context.filesDir, "fits_evidence"))
