@@ -159,20 +159,24 @@ class XilonRepository @Inject constructor(
         page: Int,
         batchSize: Int,
         synchronization: com.synthesis.service.MastDataSynchronizationService,
+        retryTargets: List<String> = emptyList(),
+        onTargetOutcome: (String, Boolean) -> Unit = { _, _ -> },
         onSignal: suspend (com.synthesis.domain.model.exoplanet.MastSyncResult, String, String) -> Unit = { _, _, _ -> }
     ): List<com.synthesis.domain.model.exoplanet.MastSyncResult> {
         require(batchSize in 1..10)
-        val targets = selectIndependentTicTargets(maxTmag, page, batchSize)
+        val targets = (retryTargets.take(3) + selectIndependentTicTargets(maxTmag, page, batchSize)).distinct()
         val results = mutableListOf<com.synthesis.domain.model.exoplanet.MastSyncResult>()
         var failedTargets = 0
         for (tic in targets) {
             val observation = runIndependentSearch(tic, synchronization).getOrElse {
                 if (it is kotlinx.coroutines.CancellationException) throw it
                 failedTargets++
+                onTargetOutcome(tic, false)
                 continueIndependentTargetLog(tic, it)
                 null
             } ?: continue
             val detection = observation.periodicDetection
+            onTargetOutcome(tic, true)
             if (!detection.isDetected || !detection.bestPeriodDays.isFinite() ||
                 detection.bestPeriodDays <= 0.0 || !detection.transitSnr.isFinite() ||
                 !detection.transitDepthPpm.isFinite() || detection.transitDepthPpm <= 0.0 ||
@@ -183,7 +187,7 @@ class XilonRepository @Inject constructor(
             onSignal(observation, comparison, comparisonEvidence)
             results.add(observation)
         }
-        check(failedTargets == 0) { "Independent survey page incomplete: $failedTargets/${targets.size} targets failed; page retained for retry" }
+        android.util.Log.i("XilonSurvey", "Page $page: $failedTargets/${targets.size} analyses failed")
         return results
     }
 
