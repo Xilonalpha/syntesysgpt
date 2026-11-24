@@ -201,22 +201,25 @@ class PeriodicTransitAnalysisEngine @Inject constructor(
         var bestQ = 0.03
 
         // 5. BLS Periodogram Scanning Loop
+        val prefixS = DoubleArray(2 * nPhaseBins + 1)
+        val prefixR = DoubleArray(2 * nPhaseBins + 1)
+        val binS = DoubleArray(nPhaseBins)
+        val binR = DoubleArray(nPhaseBins)
+        val relativeTimes = DoubleArray(nClean) { tClean[it] - t0 }
+        val weightedResiduals = DoubleArray(nClean) { wNorm[it] * (yClean[it] - yWeightedMean) }
         for (step in 0..scanSteps) {
             val freq = fMin + (step * freqStep)
             val period = 1.0 / freq
 
             // Bin data into phase bins [0, 1)
-            val binS = DoubleArray(nPhaseBins) { 0.0 } // weighted flux residuals sum
-            val binR = DoubleArray(nPhaseBins) { 0.0 } // weight sum
-            val binCount = IntArray(nPhaseBins) { 0 }
+            binS.fill(0.0)
+            binR.fill(0.0)
 
             for (i in 0 until nClean) {
-                val phase = ((tClean[i] - t0) * freq).let { it - floor(it) } // [0, 1)
+                val phase = (relativeTimes[i] * freq).let { it - floor(it) } // [0, 1)
                 val binIdx = (phase * nPhaseBins).toInt().coerceIn(0, nPhaseBins - 1)
-                val residual = yClean[i] - yWeightedMean
-                binS[binIdx] += wNorm[i] * residual
+                binS[binIdx] += weightedResiduals[i]
                 binR[binIdx] += wNorm[i]
-                binCount[binIdx]++
             }
 
             var localBestPower = 0.0
@@ -224,18 +227,18 @@ class PeriodicTransitAnalysisEngine @Inject constructor(
             var localBestQ = 0.03
             var localBestPhaseCenter = 0.0
 
+            // Circular prefix sums: each box evaluation now takes constant time.
+            for (b in 0 until 2 * nPhaseBins) {
+                prefixS[b + 1] = prefixS[b] + binS[b % nPhaseBins]
+                prefixR[b + 1] = prefixR[b] + binR[b % nPhaseBins]
+            }
             for (q in trialQList) {
                 val windowBins = (q * nPhaseBins).roundToInt().coerceIn(1, nPhaseBins / 3)
 
                 for (startBin in 0 until nPhaseBins) {
-                    var sSum = 0.0
-                    var rSum = 0.0
-
-                    for (k in 0 until windowBins) {
-                        val b = (startBin + k) % nPhaseBins
-                        sSum += binS[b]
-                        rSum += binR[b]
-                    }
+                    val endBin = startBin + windowBins
+                    val sSum = prefixS[endBin] - prefixS[startBin]
+                    val rSum = prefixR[endBin] - prefixR[startBin]
 
                     // A transit is a BRIGHTNESS DROP: sSum must be NEGATIVE
                     if (rSum in 0.001..0.999 && sSum < 0.0) {
