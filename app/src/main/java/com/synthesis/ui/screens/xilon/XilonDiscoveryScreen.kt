@@ -98,6 +98,8 @@ fun XilonDiscoveryScreen(
     viewModel: XilonViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val independentStatus by viewModel.independentStatus.collectAsState()
+    val independentRunning by viewModel.independentRunning.collectAsState()
     val savedDiscoveries by viewModel.savedDiscoveries.collectAsState()
     val geminiAnalysis by viewModel.geminiAnalysis.collectAsState()
     val isAnalyzingWithGemini by viewModel.isAnalyzingWithGemini.collectAsState()
@@ -331,12 +333,23 @@ fun XilonDiscoveryScreen(
                             ) {
                                 Icon(Icons.Default.PlayArrow, contentDescription = null, tint = DarkBackground)
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("SCAN", color = DarkBackground, style = MaterialTheme.typography.labelLarge)
+                                Text("TCE", color = DarkBackground, style = MaterialTheme.typography.labelLarge)
                             }
                         }
 
                         Spacer(modifier = Modifier.height(14.dp))
                         
+                        Button(
+                            onClick = { viewModel.runIndependentScan(ticInput) },
+                            enabled = !independentRunning && ticInput.isNotBlank(),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(if (independentRunning) "Analyzing TESS FITS..." else "Independent FITS search")
+                        }
+                        if (independentStatus.isNotBlank()) {
+                            Text(independentStatus, color = TextPrimary, style = MaterialTheme.typography.bodySmall)
+                        }
+
                         var catalogTab by remember { mutableIntStateOf(0) }
                         val curatedList = viewModel.curatedTargets
 
